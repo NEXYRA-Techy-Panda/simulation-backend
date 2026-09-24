@@ -42,7 +42,10 @@ describe('simulation HTTP API (sequential)', () => {
   it('reports not_initialized before any run and rejects run-dependent calls with contract errors', async () => {
     const state = await call('GET', '/api/v1/state');
     assert.equal(state.status, 200);
-    assert.deepEqual(state.body.data, { status: 'not_initialized', speed: 1, run_id: null, seq: null, sim_time_utc: null, rooms: [], devices: [], office: null });
+    assert.deepEqual(state.body.data, {
+      status: 'not_initialized', speed: 1, run_id: null, seq: null, sim_time_utc: null, rooms: [], devices: [], office: null,
+      occupancy: null, calendar: null, overrides: [], pending_changes: [],
+    });
     assert.deepEqual((await call('GET', '/api/v1/health')).body.data,
       { status: 'not_initialized', run_id: null, sim_time_utc: null, contract_version: '1.0.1' });
     for (const path of ['/api/v1/control/pause', '/api/v1/control/resume']) {
@@ -87,15 +90,15 @@ describe('simulation HTTP API (sequential)', () => {
     assert.equal(state.devices.length, 18);
     const light = state.devices.find((d) => d.device_id === 'dev-meeting-light')!;
     assert.deepEqual(light, {
-      device_id: 'dev-meeting-light', room_id: 'room-meeting', on: true, power_w: 72, override: { active: true, on: true },
-      energy_kwh: light.energy_kwh,
+      device_id: 'dev-meeting-light', room_id: 'room-meeting', on: true, power_w: 72, control_source: 'override',
+      override: { active: true, on: true }, policy_ref: 'pol-meeting-light:1', energy_kwh: light.energy_kwh,
     });
     assert.equal(state.devices.find((d) => d.device_id === 'dev-pantry-fridge')?.power_w, 150);
 
     const clear = await call('POST', '/api/v1/devices/dev-meeting-light', { clear_override: true });
     assert.equal(clear.body.data?.override, null);
     const after = (await call('GET', '/api/v1/state')).body.data as { devices: { device_id: string; on: boolean }[] };
-    assert.equal(after.devices.find((d) => d.device_id === 'dev-meeting-light')?.on, false); // base state
+    assert.equal(after.devices.find((d) => d.device_id === 'dev-meeting-light')?.on, false); // policy: closed at 00:00 IST, vacant
 
     const health = (await call('GET', '/api/v1/health')).body.data as { status: string; run_id: string };
     assert.deepEqual([health.status, health.run_id], ['ok', runId]);
@@ -104,7 +107,7 @@ describe('simulation HTTP API (sequential)', () => {
   it('rejects invalid devices and unsupported controls', async () => {
     const cases: [string, unknown, number, string][] = [
       ['dev-nope', { manual_state: 'on' }, 404, 'NOT_FOUND'],
-      ['dev-open-ac', { manual_state: 'on' }, 400, 'VALIDATION_ERROR'],
+      ['dev-pantry-fridge', { manual_state: 'off' }, 400, 'VALIDATION_ERROR'],
       ['dev-meeting-light', { manual_state: 'dim' }, 400, 'VALIDATION_ERROR'],
       ['dev-meeting-light', { clear_override: false }, 400, 'VALIDATION_ERROR'],
       ['dev-meeting-light', { manual_state: 'on', clear_override: true }, 400, 'VALIDATION_ERROR'],

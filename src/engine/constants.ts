@@ -20,27 +20,37 @@ export const TICK_MS = 50;
 export const MAX_STEPS_PER_BATCH = 120;
 
 /**
- * K1 manual-demo run configuration (synthetic assumptions, stored immutably
- * with every run). Automatic schedules/occupancy replace parts of this later.
+ * Run configuration stored immutably with every new run (K3–K4). The run's
+ * occupancy seed is added at creation (`occupancy_seed`). Synthetic
+ * assumptions are labelled; thermal/comfort behaviour is not modelled yet.
  */
-export const MANUAL_DEMO_CONFIG = {
-  mode: 'manual_demo',
+export const RUN_CONFIG = {
+  mode: 'policy_control',
+  layer: 'K3-K4',
   contract_version: '1.0.1',
   step_seconds: STEP_SECONDS,
   interval_seconds: INTERVAL_SECONDS,
   initial_sim_time_utc: INITIAL_SIM_TIME_UTC,
-  occupancy: { mode: 'manual', initial_per_room: 0 },
+  occupancy: {
+    max_total: 20,
+    initial_mode: 'from the pinned occupancy policy (seed: manual)',
+    initial_manual_total: 0,
+    default_scheduled_target: 14,
+    scheduled: 'All target occupants arrive at opening and leave at closing; meeting 11:00-12:00 (<=4 to meeting room) and lunch 13:00-14:00 (<=4 to pantry) redistribution.',
+    randomness: 'Seeded mulberry32 occupancy stream, independent of the device stream.',
+  },
   environment: {
     synthetic: true,
-    note: 'Constant synthetic room climate; no thermal model in K1.',
+    note: 'Constant synthetic room climate; no thermal model yet.',
     avg_temp_c: 26.0,
     avg_rh_pct: 55.0,
   },
   devices: {
-    initial_state: 'Controllable loads start off; always_on devices start on.',
     power_model: 'on => nominal_power_w (whole device/group); off => standby_power_w or 0. quantity is never multiplied in.',
-    refrigerator: 'Constant nominal draw (no compressor cycling in K1).',
-    clear_override: 'Restores the initial/base state; automatic policy evaluation will replace this in the schedule layer.',
+    automatic_control: 'Scheduled devices and lights run while their schedule permits AND the room is occupied or within vacancy grace; schedule closing ends automatic operation; manual-control devices only run by override; always_on devices always run.',
+    overrides: 'Persist until cleared; clearing returns to the current policy.',
+    refrigerator: 'Constant nominal draw (no compressor cycling).',
+    ac: 'Follows its operating schedule only; no temperature/comfort control yet.',
   },
-  unmodelled: ['avg_voltage_v', 'avg_current_a', 'AC thermal behaviour', 'refrigerator cycling', 'automatic schedules'],
+  unmodelled: ['avg_voltage_v', 'avg_current_a', 'AC thermal/comfort behaviour', 'refrigerator cycling'],
 } as const;

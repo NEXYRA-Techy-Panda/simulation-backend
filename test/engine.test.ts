@@ -204,7 +204,8 @@ describe('lifecycle', () => {
       assert.equal(engine.lifecycle, 'not_initialized');
       engine.start();
       assert.throws(() => engine.commandDevice('dev-nope', { kind: 'set', on: true }), { status: 404, code: 'NOT_FOUND' });
-      assert.throws(() => engine.commandDevice('dev-open-ac', { kind: 'set', on: true }), { status: 400, code: 'VALIDATION_ERROR' });
+      // K3–K4: any switch-capable device accepts overrides; the always-on fridge (no switch) does not.
+      assert.throws(() => engine.commandDevice('dev-pantry-fridge', { kind: 'set', on: false }), { status: 400, code: 'VALIDATION_ERROR' });
       assert.throws(() => engine.commandDevice('dev-pantry-fridge', { kind: 'clear' }), { status: 400 });
     } finally {
       closeDatabase(db);

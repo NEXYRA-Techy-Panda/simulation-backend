@@ -1,7 +1,8 @@
 import { KOLKATA_OFFSET_SECONDS } from './constants.js';
 
-// Schedule-window MEASUREMENT only (for offschedule_on_seconds). K1 never
-// switches devices from a schedule; that is the schedule layer's job.
+// Policy windows: when a device's schedule PERMITS automatic operation.
+// Used for automatic control (K3–K4) and to measure offschedule_on_seconds.
+// Overnight windows (close < open) belong to their OPENING day.
 
 interface Window {
   days: number[];
@@ -41,32 +42,38 @@ function inWindow(w: Window, epochSeconds: number): boolean {
   return (w.days.includes(isoDay) && minute >= open) || (w.days.includes(previousDay) && minute < close);
 }
 
+/** Office-hours window (ISO weekdays, Asia/Kolkata); null rules => never open. */
+export function officeHoursWindow(oh: OfficeHoursRules | null): ScheduleWindow {
+  return oh
+    ? (t) => inWindow({ days: oh.working_days_iso, start_local: oh.open_local, end_local: oh.close_local, overnight: oh.overnight }, t)
+    : never;
+}
+
 const never: ScheduleWindow = () => false;
 const always: ScheduleWindow = () => true;
 
 /**
- * Builds the expected-on window for a device policy. Decisions (owner,
- * P004): an empty device on_windows follows the referenced office-hours
- * version; lighting on_during_hours follows the run's office hours.
+ * Builds the permitted-operation window for a device policy. Decisions
+ * (owner, P004/P008): an empty device on_windows follows the referenced
+ * office-hours version; explicit on_windows further restrict it
+ * (intersection with those office hours); lighting on_during_hours follows
+ * the run's current office hours; always_on is always permitted.
  */
 export function scheduleWindowFor(
   kind: string,
   rules: Record<string, unknown>,
   resolveOfficeHours: (ref: string | null) => OfficeHoursRules | null,
 ): ScheduleWindow {
-  const officeWindow = (oh: OfficeHoursRules | null): ScheduleWindow => (oh
-    ? (t) => inWindow({ days: oh.working_days_iso, start_local: oh.open_local, end_local: oh.close_local, overnight: oh.overnight }, t)
-    : never);
-
   switch (kind) {
     case 'always_on':
       return always;
     case 'lighting_schedule':
-      return rules.on_during_hours === true ? officeWindow(resolveOfficeHours(null)) : never;
+      return rules.on_during_hours === true ? officeHoursWindow(resolveOfficeHours(null)) : never;
     case 'device_schedule': {
       const windows = (rules.on_windows as { days: number[]; start_local: string; end_local: string }[] | undefined) ?? [];
-      if (windows.length === 0) return officeWindow(resolveOfficeHours(String(rules.office_hours_ref)));
-      return (t) => windows.some((w) => inWindow({ ...w, overnight: minutesOf(w.end_local) <= minutesOf(w.start_local) }, t));
+      const hours = officeHoursWindow(resolveOfficeHours(String(rules.office_hours_ref)));
+      if (windows.length === 0) return hours;
+      return (t) => hours(t) && windows.some((w) => inWindow({ ...w, overnight: minutesOf(w.end_local) < minutesOf(w.start_local) }, t));
     }
     default:
       return never;

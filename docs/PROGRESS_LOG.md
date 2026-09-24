@@ -337,3 +337,47 @@ correction entry; do not rewrite history.
   shutdown path unexercised; crash loss < 1 simulated minute.
 - Next action: commit + push; stop after P004.
 - Commit references: P004 hash recorded in the P004 return report.
+
+---
+
+## 2026-09-24 20:21:01 +05:30 (IST) — P004 / K1 accepted (recorded)
+
+- P004 (commit `93da205aa0edbc6cc308c9cce7c1af19216f10df`) was accepted by
+  the architecture lead based on supplied evidence.
+
+---
+
+## 2026-09-24 20:21:01 +05:30 (IST) — P008 / K3–K4 started (actual)
+
+- Assignment P008, layers K3–K4 (occupancy allocation + operating
+  schedules), Agent B — Claude Code, owner Mohan. Exclusive write:
+  simulation-backend. Baseline `93da205` == origin/main, clean; no AGENTS.md.
+- MVP decisions given by the owner: overnight windows belong to their
+  opening day; open == close invalid; schedule closing ends automatic
+  operation (grace only while the schedule permits); overrides persist until
+  cleared and clearing returns to policy; calendar/policy changes effective
+  at the next minute boundary; occupancy/manual changes at the next step.
+- Next action: occupancy model + seeded RNG, schedule control with grace,
+  occupancy/calendar routes, versioned policy application, tests, docs.
+- Review status: pending.
+
+---
+
+## 2026-09-24 20:32:33 +05:30 (IST) — P008 / K3–K4 completed (actual)
+
+- Layers K3–K4 (P008), Agent B — Claude Code. Implementation completed;
+  review pending (never self-assigned).
+- Delivered: seeded stable occupancy (manual/scheduled, redistribution,
+  capacity checks), schedule + vacancy-grace device control, overrides that
+  clear to policy, POST /occupancy and /calendar, versioned calendar changes
+  effective at the next minute boundary (pending + checkpointed + pinned with
+  the completed minute), extended state, complete API examples.
+- Results: verifier 75/75; schema 24/24; typecheck/lint/build 0; tests 56/56;
+  live port-4000 demo reconciled.
+- Decisions: overnight → opening day; open == close invalid; closing ends
+  automatic operation (grace only while permitted); explicit on_windows
+  intersect office hours; manual-control devices override-only; overrides on
+  all switch-capable devices; seed only at run creation; total (manual) vs
+  target (scheduled) kept separate.
+- Next action: commit + push; stop after P008.
+- Commit references: P008 hash recorded in the P008 return report.

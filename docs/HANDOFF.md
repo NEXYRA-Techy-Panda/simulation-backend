@@ -2,9 +2,9 @@
 
 ## 0. Continuity and current layer (F0.1, 2026-09-24)
 
-- Current layer: **P004 / K1** (authoritative simulation clock + first energy
-  loop) — status **completed**, review **pending** (P002 accepted based on
-  supplied evidence). Contract: **1.0.1 defined** (canonical
+- Current layer: **P008 / K3–K4** (occupancy allocation + operating
+  schedules) — status **completed**, review **pending** (P004 accepted based
+  on supplied evidence). Contract: **1.0.1 defined** (canonical
   `simulation-backend/contracts/v1/`, mirrored to siblings; replaces the
   unaccepted 1.0.0 prototype, no backward compatibility claimed).
 - Continuity files: [ACTIVE_TASK.md](ACTIVE_TASK.md) and [PROGRESS_LOG.md](PROGRESS_LOG.md).
@@ -121,6 +121,25 @@
   tests 39/39, live port-4000 demo on a temp DB.
   Evidence: [P004_K1_EVIDENCE.md](P004_K1_EVIDENCE.md). Next: schedule layer,
   occupancy, Socket.IO, export — pending assignment.
+- P008 / K3–K4 addendum (2026-09-24, Agent B — Claude Code, implementation
+  completed, review **pending**): P004 accepted based on supplied evidence.
+  Occupancy: 20 stable seeded occupants (occ-01..occ-20) with home seats,
+  capacity-respecting allocation preserving assignments, manual (total) and
+  scheduled (target, default 14) modes, meeting 11–12 / lunch 13–14
+  redistribution, seeded checkpointed occupancy RNG independent of devices;
+  400 outside 0–20, 409 above capacity. Schedules: lights and scheduled
+  devices on while permitted AND occupied or in simulated-time grace;
+  closing ends automatic operation; manual-control devices override-only;
+  fridge always on; overrides on switch-capable devices clear back to
+  policy. Calendar (POST /calendar) creates office-hours + device_schedule
+  versions effective at the next minute boundary (pending, checkpointed,
+  pinned into run_policies with the completed minute); overnight belongs to
+  its opening day; open == close rejected. No new migration (checkpoint
+  format 2). Checks: verifier 75/75, schema 24/24, typecheck/lint/build 0,
+  tests 56/56, live port-4000 demo (temp DB). Complete API examples for
+  OpenCode: [SIMULATION_ENGINE.md](SIMULATION_ENGINE.md). Evidence:
+  [P008_K3_K4_EVIDENCE.md](P008_K3_K4_EVIDENCE.md). Next: Socket.IO, export,
+  comfort — pending assignment.
 
 ## 1. Purpose and owner
 
