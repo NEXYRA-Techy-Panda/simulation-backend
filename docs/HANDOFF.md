@@ -1,5 +1,35 @@
 # HANDOFF — simulation-backend
 
+## K004-PREP2 addendum (branch-local; implemented, review pending; NOT merged/pushed/deployed)
+
+- **Branch/worktree**: `kishore/k004-environment-prep` in the separate worktree
+  `../simulation-backend-k004`, based on the unchanged `main` commit
+  `929e78e` (`chore(deploy): fix simulation backend port 19001`).
+  Agent K-B — FreeBuff, owner Kishore Kumar.
+- **Implemented**: contract `POST /api/v1/environment` (`room_id`, `temp_c`,
+  `rh_pct`) prescribes per-room climate; new runs record
+  `devices.ac_power_model: "ac-demand-v1"` plus its assumptions in the immutable
+  run configuration; AC power for those runs comes from `src/environment`
+  through one `powerFor()` used by the step loop and `getState()` alike.
+- **Legacy separation**: a stored run configuration without `ac_power_model`
+  keeps the flat-rated model, its constant run-level climate readings and
+  read-only climate state; `POST /environment` answers `409 CONFLICT` there and
+  the next `reset` creates an environment-capable run. No historical reading or
+  global policy revision is rewritten.
+- **Persistence**: no schema migration — the model id is in
+  `simulation_runs.config`, per-room climate and the climate accumulators ride in
+  `engine_checkpoints.state` (format stays 2, older checkpoints default), and the
+  existing `room_intervals.avg_temp_c`/`avg_rh_pct` carry duration-weighted
+  readings for the covered seconds.
+- **Verification**: 89/89 tests, typecheck clean, lint 0 errors, build exit 0,
+  contract 75/75, schema 24/24, and a short real HTTP check on the fixed port
+  19001 against a throwaway database (see the evidence doc).
+- **Not done**: frontend controls/display, contract/export changes, merge and
+  push. Wiring the model changes simulated AC energy on new runs (for example
+  700 W instead of 1500 W at the default 26 °C).
+- **Evidence**: [K004_ENVIRONMENT_ENGINE_PREP_EVIDENCE.md](K004_ENVIRONMENT_ENGINE_PREP_EVIDENCE.md)
+  (K004-PREP module: [K004_ENVIRONMENT_PREP_EVIDENCE.md](K004_ENVIRONMENT_PREP_EVIDENCE.md)).
+
 ## 0. Continuity and current layer (F0.1, 2026-09-24)
 
 - Current layer: **K001 / K0 — setup and onboarding** (Agent K — Kishore's

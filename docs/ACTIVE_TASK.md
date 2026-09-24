@@ -1,12 +1,36 @@
 # ACTIVE_TASK — simulation-backend
 
-## Current task (branch-local) — K004-PREP
+## Current task (branch-local) — K004-PREP2, above K004-PREP
 
-**Developer Kishore Kumar | Agent K-B — FreeBuff | K004-PREP.** Prepared on the
-feature branch `kishore/k004-environment-prep` in the worktree
-`../simulation-backend-k004`, based on committed `main`
-`929e78e7b6b19bf586e131a6bc256e2b211e3bcf`. Status: **prepared, review
-pending**; engine/UI integration and a `main` release are still pending.
+**Developer Kishore Kumar | Agent K-B — FreeBuff.** Branch
+`kishore/k004-environment-prep`, worktree `../simulation-backend-k004`, base
+`929e78e7b6b19bf586e131a6bc256e2b211e3bcf` (unchanged; no rebase/merge).
+Status: **implemented, review pending** — not merged, not pushed, not deployed.
+
+### K004-PREP2 — environment engine integration
+
+- `POST /api/v1/environment` implemented in the existing `/api/v1` simulation
+  router (no `app.ts`/`server.ts` change): per-room prescribed climate, contract
+  fields `room_id`/`temp_c`/`rh_pct`, applied from the next simulated step.
+- New runs record `devices.ac_power_model: "ac-demand-v1"` with its assumptions
+  in the immutable run configuration; AC power on those runs comes from the
+  environment module through the single `powerFor()` used by both the step loop
+  and `getState()`. Non-AC devices and the refrigerator are unchanged.
+- Runs whose stored configuration has no model id stay legacy: flat-rated power,
+  constant run-level climate readings, and a documented `409 CONFLICT` for
+  climate commands.
+- `room_intervals.avg_temp_c`/`avg_rh_pct` are now duration-weighted per room;
+  **no migration was added** and no stored reading is rewritten.
+- Checks (actual): 89/89 tests, `typecheck` clean, `lint` 0 errors, `build` exit 0,
+  contract 75/75, schema 24/24, plus a short real HTTP run on port 19001 against a
+  throwaway database (listener started and stopped by this task).
+- Evidence: `docs/K004_ENVIRONMENT_ENGINE_PREP_EVIDENCE.md`.
+
+### K004-PREP — environment/AC-consumption module (previous step, same branch)
+
+**Agent K-B — FreeBuff | K004-PREP** (committed as `43aa9fa`). The module was
+prepared then; its engine integration was pending and is now covered by
+K004-PREP2 above.
 
 - Scope delivered: an isolated `src/environment/` module (pure contract-shape
   climate validation/normalization + a deterministic demo AC power model),
@@ -15,9 +39,10 @@ pending**; engine/UI integration and a `main` release are still pending.
   UI are untouched; no service, database or deployment was touched.
 - Branch-local continuity is **not** evidence that `main` has this feature. The
   K002 record below is preserved unchanged and still describes `main`.
-- Exact next action: review the preparation, then implement the environment
-  route plus per-room climate state and wire the model into
-  `stepOnce()`/`getState()` under a separate assignment.
+- Exact next action (updated by K004-PREP2): review this branch against K-A's
+  committed K003 export work, decide whether the export contract needs a new
+  version to carry `ac_power_model`/per-room climate, then merge without force,
+  push `main` normally and hand the environment controls to the frontend.
 
 ---
 

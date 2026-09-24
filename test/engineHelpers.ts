@@ -43,10 +43,16 @@ export function drain(engine: SimulationEngine): number {
 export interface DeviceState { device_id: string; room_id: string; on: boolean; power_w: number; energy_kwh: number; override: unknown }
 export interface EngineState {
   status: string; speed: number; run_id: string | null; seq: number | null; sim_time_utc: string | null;
-  rooms: { room_id: string; occupancy: number; power_w: number; energy_kwh: number }[];
+  rooms: {
+    room_id: string; occupancy: number; power_w: number; energy_kwh: number;
+    /** Prescribed per-room climate (K004-PREP2); null on a legacy run. */
+    climate: { temp_c: number; rh_pct: number } | null;
+  }[];
   devices: DeviceState[];
   office: { power_w: number; energy_kwh: number } | null;
   partial_interval?: { start_utc: string; covered_seconds: number };
+  /** Recorded AC power model id of the active run; null for a legacy run. */
+  ac_power_model?: string | null;
 }
 
 export const stateOf = (engine: SimulationEngine): EngineState => engine.getState() as unknown as EngineState;

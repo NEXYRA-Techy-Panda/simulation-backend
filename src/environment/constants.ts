@@ -56,6 +56,15 @@ export const OCCUPANCY_LOAD_FRACTION_PER_PERSON = 0.03;
 /** Occupancy context bound, matching the simulator's documented 0–20 occupants. */
 export const MAX_OCCUPANCY_CONTEXT = 20;
 
+/**
+ * Stable identifier of this AC power model. It is recorded in the immutable
+ * run configuration of every run created with it; a run whose configuration
+ * has no id is a legacy run and keeps the flat-rated model. Bump this string
+ * (e.g. `ac-demand-v2`) if any assumption below changes, so two runs can never
+ * claim the same model while meaning different energy.
+ */
+export const AC_POWER_MODEL_ID = 'ac-demand-v1';
+
 /** Only this device type may be routed through the AC model. */
 export const SUPPORTED_AC_DEVICE_TYPES = ['ac'] as const;
 

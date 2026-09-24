@@ -150,8 +150,18 @@ A device's **automatic** state at step start `t`:
   the workstation group is 960 W, never × quantity). A device that is off
   draws `standby_power_w`, or 0.
 - **AC:** it follows its operating schedule only. There is no temperature or
-  comfort control.
+  comfort control (the AC is never switched by temperature).
 - **Room climate:** a constant synthetic 26 °C / 55 % RH.
+
+> **K004-PREP2 addendum (branch-local, review pending).** On a run created with
+> the environment model, each room's climate is a *prescribed external input*
+> set by `POST /api/v1/environment` (contract fields `room_id`, `temp_c`,
+> `rh_pct`, all required, applied from the **next simulated step**), and the AC
+> power of that run comes from the pure `src/environment` model instead of the
+> flat rating. The run-level climate above remains only the *initial* per-room
+> value. Durations are weighted, so a change partway through a minute publishes
+> what actually occurred. Full details, model identity and legacy behaviour:
+> [K004_ENVIRONMENT_ENGINE_PREP_EVIDENCE.md](K004_ENVIRONMENT_ENGINE_PREP_EVIDENCE.md).
 
 ## Calendar changes and historical correctness
 
@@ -1457,9 +1467,39 @@ Response `200`:
 }
 ```
 
+## Environment command (K004-PREP2, branch-local)
+
+`POST /api/v1/environment` — the contract's room-climate command. Fields are
+closed and all required. The backend owns the climate state; the value applies
+from the next 10-second simulated step, and a paused run accepts it without
+advancing time or energy.
+
+```sh
+curl -X POST http://localhost:19001/api/v1/environment \
+  -H "Content-Type: application/json" \
+  -d '{"room_id":"room-open-workspace","temp_c":31,"rh_pct":45}'
+```
+
+```jsonc
+{ "data": { "room_id": "room-open-workspace", "seq": 4, "temp_c": 31, "rh_pct": 45,
+            "sim_time_utc": "2025-12-31T18:30:20Z", "applies_from": "next_step" },
+  "meta": { "request_id": "…" } }
+```
+
+Errors: `400 VALIDATION_ERROR` with `field` for a bad type/range/missing/unknown
+field, `404 NOT_FOUND` for an unknown room, `409 CONFLICT` when no run exists or
+when the active run predates the environment model (its AC power stays flat-rated
+and a reset creates an environment-capable run).
+
+`GET /api/v1/state` additionally carries `ac_power_model` and each room's
+`climate` (`null` on a legacy run) — additive, internal, **not** part of the
+export contract.
+
 ## Remaining work (later layers)
 
-- Comfort/temperature-based AC control and thermal behaviour.
+- Comfort/temperature-based AC *control* (switching the AC by temperature) and
+  thermal behaviour/trajectories; K004-PREP2 only prescribes climate and models
+  AC power.
 - Staggered arrivals or role-based movement (not planned for MVP1).
 - Configurable start dates.
 - Socket.IO sequencing and replay.

@@ -67,6 +67,17 @@ export function simulationRouter(engine: SimulationEngine): Router {
     }));
   });
 
+  /**
+   * POST /api/v1/environment (contract field names and presence: `room_id`,
+   * `temp_c`, `rh_pct`, no extras). Body shape is enforced here; value
+   * validation, room lookup and application are the engine's job, so an invalid
+   * command never mutates state.
+   */
+  router.post('/environment', (req, res) => {
+    const body = objectBody(req, ['room_id', 'temp_c', 'rh_pct']);
+    sendData(res, engine.setEnvironment({ room_id: body.room_id, temp_c: body.temp_c, rh_pct: body.rh_pct }));
+  });
+
   router.post('/devices/:id', (req, res) => {
     const body = objectBody(req, ['manual_state', 'clear_override']);
     const hasSet = 'manual_state' in body;

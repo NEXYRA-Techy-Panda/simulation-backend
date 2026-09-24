@@ -3,6 +3,10 @@ import { utcNow } from '../db/clock.js';
 import { type Database, transaction } from '../db/connection.js';
 import { addPolicyVersion } from '../db/inventory.js';
 import { createRun } from '../db/runs.js';
+import {
+  AC_POWER_MODEL_ID, type AcDeviceRating, EnvironmentInputError, acPowerW, type RoomClimateCommand,
+  validateRoomClimateCommand,
+} from '../environment/index.js';
 import { ApiError } from '../http/errors.js';
 import {
   DEFAULT_SPEED, INITIAL_SIM_TIME_UTC, INTERVAL_SECONDS, RUN_CONFIG, type Speed, STEP_SECONDS, isSpeed,
@@ -32,6 +36,13 @@ export interface CalendarCommand {
   overnight?: unknown;
 }
 
+/** POST /api/v1/environment: the contract's closed fields (room_id, temp_c, rh_pct), all required. */
+export interface EnvironmentCommand {
+  room_id: unknown;
+  temp_c: unknown;
+  rh_pct: unknown;
+}
+
 interface PolicyRef {
   policy_id: string;
   version: number;
@@ -51,6 +62,8 @@ interface DeviceRuntime {
   device_type: string;
   control: string;
   controls: string[];
+  /** Member count; recorded for information only and never multiplied into power. */
+  quantity: number;
   nominal_power_w: number;
   standby_power_w: number | null;
   power_factor: number;
@@ -68,6 +81,13 @@ interface RoomRuntime {
   occupancy: number;
   /** Simulated epoch when the room last became vacant (grace start); null while occupied or never occupied. */
   vacant_since: number | null;
+  /**
+   * Prescribed EXTERNAL room climate (K004-PREP2), not a simulated thermal
+   * state. null only on a legacy run whose immutable configuration predates
+   * the environment model: such a run keeps the flat-rated power model and the
+   * old constant run-level climate readings.
+   */
+  climate: { temp_c: number; rh_pct: number } | null;
 }
 
 interface DeviceAcc {
@@ -84,6 +104,9 @@ interface RoomAcc {
   occupancy_seconds: number;
   occupancy_max: number;
   occupied_seconds: number;
+  /** Duration-weighted climate accumulators (temperature x seconds, RH x seconds). */
+  temp_seconds: number;
+  rh_seconds: number;
 }
 
 /** Current partial interval: processed but not yet published as a completed minute. */
@@ -104,7 +127,7 @@ interface PendingChange {
 interface CheckpointState {
   format?: 2;
   devices: Record<string, { override: { on: boolean } | null; cumulative_kwh: number; base_on?: boolean }>;
-  rooms: Record<string, { occupancy: number; vacant_since?: number | null }>;
+  rooms: Record<string, { occupancy: number; vacant_since?: number | null; climate?: { temp_c: number; rh_pct: number } | null }>;
   occupancy?: OccupancyState;
   pending?: PendingChange[];
   partial: PartialInterval;
@@ -116,7 +139,10 @@ interface RunRuntime {
   seq: number;
   devices: DeviceRuntime[];
   rooms: RoomRuntime[];
+  /** Configured run-level climate: the INITIAL per-room climate, not a reading or a summary. */
   environment: { avg_temp_c: number; avg_rh_pct: number };
+  /** AC power model id recorded in the immutable run configuration; null = legacy flat model. */
+  acPowerModelId: string | null;
   partial: PartialInterval;
   occupancy: OccupancyModel;
   officeHours: (PolicyRef & { rules: OfficeHoursRules }) | null;
@@ -388,6 +414,50 @@ export class SimulationEngine {
     };
   }
 
+  /**
+   * POST /api/v1/environment (contract fields `room_id`, `temp_c`, `rh_pct` —
+   * all required, no extra fields). Prescribes the ROOM climate the AC power
+   * model reads; it is an external input, not a modelled thermal state.
+   *
+   * Validation happens before any mutation, so an invalid command leaves
+   * climate, seq, checkpoint and readings exactly as they were. The value
+   * applies from the NEXT simulated step (the step starting at
+   * `sim_time_utc`): the seconds already accumulated in the partial minute keep
+   * their previous climate and the minute is published duration-weighted. A
+   * paused run therefore accepts a climate change without advancing time or
+   * energy, and no completed reading is ever rewritten.
+   */
+  setEnvironment(cmd: EnvironmentCommand): Record<string, unknown> {
+    const run = this.requireRun();
+    let reading: RoomClimateCommand;
+    try {
+      reading = validateRoomClimateCommand({ room_id: cmd.room_id, temp_c: cmd.temp_c, rh_pct: cmd.rh_pct });
+    } catch (err) {
+      if (err instanceof EnvironmentInputError) throw new EngineError(400, 'VALIDATION_ERROR', err.message, err.field);
+      throw err;
+    }
+    const room = run.rooms.find((r) => r.room_id === reading.room_id);
+    if (!room) {
+      throw new EngineError(404, 'NOT_FOUND', `Room "${reading.room_id}" is not part of the current run`, 'room_id');
+    }
+    if (run.acPowerModelId !== AC_POWER_MODEL_ID) {
+      throw new EngineError(409, 'CONFLICT',
+        'This run predates the environment model and keeps its flat-rated power semantics; reset to create an environment-capable run',
+        'room_id');
+    }
+    room.climate = { temp_c: reading.temp_c, rh_pct: reading.rh_pct };
+    run.seq++;
+    this.writeCheckpoint();
+    return {
+      room_id: room.room_id,
+      seq: run.seq,
+      temp_c: room.climate.temp_c,
+      rh_pct: room.climate.rh_pct,
+      sim_time_utc: toUtc(run.simEpoch),
+      applies_from: 'next_step',
+    };
+  }
+
   // ------------------------------------------------------- deterministic core
 
   /** Processes n fixed steps. Deterministic; used by the scheduler and by tests. */
@@ -403,10 +473,17 @@ export class SimulationEngine {
       acc.occupancy_seconds += room.occupancy * STEP_SECONDS;
       acc.occupancy_max = Math.max(acc.occupancy_max, room.occupancy);
       if (room.occupancy > 0) acc.occupied_seconds += STEP_SECONDS;
+      // Duration-weighted climate: a change partway through the minute keeps
+      // each segment's own reading, so the published interval describes what
+      // actually occurred rather than the final value.
+      if (room.climate) {
+        acc.temp_seconds += room.climate.temp_c * STEP_SECONDS;
+        acc.rh_seconds += room.climate.rh_pct * STEP_SECONDS;
+      }
     }
     for (const d of run.devices) {
       const on = this.isOn(run, d, t);
-      const power = powerOf(d, on);
+      const power = this.powerFor(run, d, on);
       const energy = (power * STEP_SECONDS) / 3_600_000;
       const acc = run.partial.devices[d.device_id]!;
       acc.energy_kwh += energy;
@@ -454,6 +531,27 @@ export class SimulationEngine {
 
   private room(run: RunRuntime, roomId: string): RoomRuntime {
     return run.rooms.find((r) => r.room_id === roomId)!;
+  }
+
+  /**
+   * Power for one simulated step AND for the exposed state; the identical
+   * function is used by both, so exposed power always agrees with accumulated
+   * energy. Legacy runs (no recorded model id) and every non-AC device keep the
+   * flat-rated behaviour: on => nominal_power_w, off => standby_power_w or 0.
+   * The refrigerator is never routed through the AC model.
+   */
+  private powerFor(run: RunRuntime, d: DeviceRuntime, on: boolean): number {
+    if (run.acPowerModelId !== AC_POWER_MODEL_ID || d.device_type !== 'ac') return powerOf(d, on);
+    const room = this.room(run, d.room_id);
+    if (!room.climate) return powerOf(d, on); // defensive: model runs always carry a climate
+    const device: AcDeviceRating = {
+      device_id: d.device_id,
+      device_type: d.device_type,
+      quantity: d.quantity,
+      nominal_power_w: d.nominal_power_w,
+      ...(d.standby_power_w === null ? {} : { standby_power_w: d.standby_power_w }),
+    };
+    return acPowerW({ device, on, temp_c: room.climate.temp_c, rh_pct: room.climate.rh_pct, occupancy: room.occupancy });
   }
 
   /** Occupancy for the step starting at run.simEpoch; updates vacancy (grace) timestamps. */
@@ -509,8 +607,13 @@ export class SimulationEngine {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
       for (const room of run.rooms) {
         const acc = p.rooms[room.room_id]!;
+        // Per-room climate readings are duration-weighted over the covered
+        // seconds (never a copy of the final value). A legacy run has no
+        // per-room climate and keeps the run-level constant, exactly as before.
+        const tempC = room.climate ? acc.temp_seconds / covered : run.environment.avg_temp_c;
+        const rhPct = room.climate ? acc.rh_seconds / covered : run.environment.avg_rh_pct;
         roomStmt.run(run.run_id, room.room_id, start, end, covered, acc.occupancy_seconds / covered, acc.occupancy_max,
-          acc.occupied_seconds / covered, run.environment.avg_temp_c, run.environment.avg_rh_pct, partial ? 1 : 0);
+          acc.occupied_seconds / covered, tempC, rhPct, partial ? 1 : 0);
       }
       const devStmt = this.db.prepare(`INSERT INTO device_intervals (run_id, device_id, room_id, interval_start_utc,
           interval_end_utc, interval_seconds, avg_power_w, max_power_w, energy_kwh, cumulative_kwh, avg_voltage_v,
@@ -542,7 +645,7 @@ export class SimulationEngine {
     const devices = run.devices.map((d) => {
       const on = this.isOn(run, d, t);
       return {
-        device_id: d.device_id, room_id: d.room_id, on, power_w: powerOf(d, on),
+        device_id: d.device_id, room_id: d.room_id, on, power_w: this.powerFor(run, d, on),
         control_source: d.override ? 'override' : 'policy',
         override: d.override ? { active: true, on: d.override.on } : null,
         policy_ref: refString(d.policy),
@@ -553,6 +656,7 @@ export class SimulationEngine {
       const own = devices.filter((d) => d.room_id === r.room_id);
       return {
         room_id: r.room_id, occupancy: r.occupancy, capacity: r.capacity,
+        climate: r.climate ? { temp_c: r.climate.temp_c, rh_pct: r.climate.rh_pct } : null,
         power_w: own.reduce((s, d) => s + d.power_w, 0), energy_kwh: own.reduce((s, d) => s + d.energy_kwh, 0),
       };
     });
@@ -565,6 +669,8 @@ export class SimulationEngine {
       seq: run.seq,
       sim_time_utc: toUtc(t),
       step_seconds: STEP_SECONDS,
+      /** Internal (non-contract) identifier of the AC power model this run uses. */
+      ac_power_model: run.acPowerModelId,
       rooms,
       devices,
       office: {
@@ -661,17 +767,27 @@ export class SimulationEngine {
   private loadRun(runId: string, simEpoch: number, seq: number, state: CheckpointState | null): RunRuntime {
     const cfg = JSON.parse((this.db.prepare('SELECT config FROM simulation_runs WHERE run_id = ?').get(runId) as { config: string }).config) as {
       environment?: { avg_temp_c?: number; avg_rh_pct?: number };
+      devices?: { ac_power_model?: string };
       occupancy_seed?: number;
+    };
+    // The recorded model id is part of the immutable run configuration: its
+    // absence is what makes a persisted pre-integration run legacy.
+    const acPowerModelId = cfg.devices?.ac_power_model ?? null;
+    const environment = {
+      avg_temp_c: cfg.environment?.avg_temp_c ?? RUN_CONFIG.environment.avg_temp_c,
+      avg_rh_pct: cfg.environment?.avg_rh_pct ?? RUN_CONFIG.environment.avg_rh_pct,
     };
     const rooms = (this.db.prepare('SELECT room_id, room_type, capacity FROM run_rooms WHERE run_id = ? ORDER BY room_id').all(runId) as {
       room_id: string; room_type: string; capacity: number;
     }[]).map((r): RoomRuntime => ({
       ...r, occupancy: state?.rooms[r.room_id]?.occupancy ?? 0, vacant_since: state?.rooms[r.room_id]?.vacant_since ?? null,
+      climate: state?.rooms[r.room_id]?.climate
+        ?? (acPowerModelId ? { temp_c: environment.avg_temp_c, rh_pct: environment.avg_rh_pct } : null),
     }));
-    const deviceRows = this.db.prepare(`SELECT device_id, room_id, device_type, controls, nominal_power_w, standby_power_w,
+    const deviceRows = this.db.prepare(`SELECT device_id, room_id, device_type, controls, quantity, nominal_power_w, standby_power_w,
         power_factor, control FROM run_devices WHERE run_id = ? ORDER BY device_id`).all(runId) as {
-      device_id: string; room_id: string; device_type: string; controls: string; nominal_power_w: number;
-      standby_power_w: number | null; power_factor: number; control: string;
+      device_id: string; room_id: string; device_type: string; controls: string; quantity: number;
+      nominal_power_w: number; standby_power_w: number | null; power_factor: number; control: string;
     }[];
 
     const placeholder: DevicePolicy = { policy_id: '', version: 0, kind: '', permitted: () => false, grace_seconds: 0, allow_manual_override: false };
@@ -682,10 +798,8 @@ export class SimulationEngine {
         override: state?.devices[d.device_id]?.override ?? null,
         cumulative_kwh: state?.devices[d.device_id]?.cumulative_kwh ?? 0,
       })),
-      environment: {
-        avg_temp_c: cfg.environment?.avg_temp_c ?? RUN_CONFIG.environment.avg_temp_c,
-        avg_rh_pct: cfg.environment?.avg_rh_pct ?? RUN_CONFIG.environment.avg_rh_pct,
-      },
+      environment,
+      acPowerModelId,
       partial: { start_epoch: simEpoch, covered_seconds: 0, devices: {}, rooms: {} },
       occupancy: new OccupancyModel([], OccupancyModel.initial([], 0, 'manual')),
       officeHours: null,
@@ -698,7 +812,7 @@ export class SimulationEngine {
     const seed = cfg.occupancy_seed ?? createHash('sha256').update(runId).digest().readUInt32BE(0);
     const occupancyMode = this.pinnedOccupancyMode(run);
     run.occupancy = new OccupancyModel(rooms, state?.occupancy ?? OccupancyModel.initial(rooms, seed, occupancyMode));
-    run.partial = state?.partial ?? this.freshPartial(run, simEpoch);
+    run.partial = this.restorePartial(run, state?.partial, simEpoch);
     return run;
   }
 
@@ -772,7 +886,37 @@ export class SimulationEngine {
       start_epoch: startEpoch,
       covered_seconds: 0,
       devices: Object.fromEntries(run.devices.map((d) => [d.device_id, emptyDeviceAcc()])),
-      rooms: Object.fromEntries(run.rooms.map((r) => [r.room_id, { occupancy_seconds: 0, occupancy_max: 0, occupied_seconds: 0 }])),
+      rooms: Object.fromEntries(run.rooms.map((r) => [r.room_id, {
+        occupancy_seconds: 0, occupancy_max: 0, occupied_seconds: 0, temp_seconds: 0, rh_seconds: 0,
+      }])),
+    };
+  }
+
+  /**
+   * Restores the partial accumulator, filling in anything a checkpoint written
+   * before the environment model did not record (climate seconds = 0, so the
+   * remaining covered seconds still weigh correctly). Room climate itself comes
+   * from the checkpointed rooms; a missing entry falls back to the configured
+   * run climate for model runs and stays null for legacy runs.
+   */
+  private restorePartial(run: RunRuntime, stored: PartialInterval | undefined, startEpoch: number): PartialInterval {
+    if (!stored) return this.freshPartial(run, startEpoch);
+    return {
+      start_epoch: stored.start_epoch,
+      covered_seconds: stored.covered_seconds,
+      devices: Object.fromEntries(
+        run.devices.map((d) => [d.device_id, { ...emptyDeviceAcc(), ...(stored.devices[d.device_id] ?? {}) }]),
+      ),
+      rooms: Object.fromEntries(run.rooms.map((r) => {
+        const acc = stored.rooms[r.room_id];
+        return [r.room_id, {
+          occupancy_seconds: acc?.occupancy_seconds ?? 0,
+          occupancy_max: acc?.occupancy_max ?? 0,
+          occupied_seconds: acc?.occupied_seconds ?? 0,
+          temp_seconds: acc?.temp_seconds ?? 0,
+          rh_seconds: acc?.rh_seconds ?? 0,
+        }];
+      })),
     };
   }
 
@@ -784,7 +928,7 @@ export class SimulationEngine {
     const state: CheckpointState = {
       format: 2,
       devices: Object.fromEntries(run.devices.map((d) => [d.device_id, { override: d.override, cumulative_kwh: d.cumulative_kwh }])),
-      rooms: Object.fromEntries(run.rooms.map((r) => [r.room_id, { occupancy: r.occupancy, vacant_since: r.vacant_since }])),
+      rooms: Object.fromEntries(run.rooms.map((r) => [r.room_id, { occupancy: r.occupancy, vacant_since: r.vacant_since, climate: r.climate }])),
       occupancy: run.occupancy.state,
       pending: run.pending,
       partial: run.partial,

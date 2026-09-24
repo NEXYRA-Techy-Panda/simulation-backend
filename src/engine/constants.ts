@@ -1,3 +1,5 @@
+import { AC_POWER_MODEL_ID } from '../environment/constants.js';
+
 /** Fixed simulated calculation step (seconds). */
 export const STEP_SECONDS = 10;
 /** Permanent aggregation interval (seconds); a multiple of STEP_SECONDS. */
@@ -47,6 +49,23 @@ export const RUN_CONFIG = {
   },
   devices: {
     power_model: 'on => nominal_power_w (whole device/group); off => standby_power_w or 0. quantity is never multiplied in.',
+    /**
+     * K004-PREP2: AC power model recorded in the immutable run configuration.
+     * A run whose stored configuration has no `ac_power_model` is a legacy run
+     * and keeps the flat-rated model above. New runs use the environment model
+     * for `device_type: "ac"` only; every other device is unchanged.
+     */
+    ac_power_model: AC_POWER_MODEL_ID,
+    ac_power_model_assumptions: {
+      module: 'src/environment',
+      setpoint_c: 24,
+      full_load_delta_c: 6,
+      min_on_load_fraction: 0.2,
+      occupancy_fraction_per_person: 0.03,
+      humidity_affects_power: false,
+      room_temperature: 'prescribed external input; no thermal trajectory is simulated',
+      nominal: 'whole device/group maximum for the demo model; quantity is never multiplied',
+    },
     automatic_control: 'Scheduled devices and lights run while their schedule permits AND the room is occupied or within vacancy grace; schedule closing ends automatic operation; manual-control devices only run by override; always_on devices always run.',
     overrides: 'Persist until cleared; clearing returns to the current policy.',
     refrigerator: 'Constant nominal draw (no compressor cycling).',

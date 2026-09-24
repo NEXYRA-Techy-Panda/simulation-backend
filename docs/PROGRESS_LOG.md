@@ -616,3 +616,52 @@ correction entry; do not rewrite history.
 - Next action: review this preparation, then implement the environment route and
   per-room climate state and wire `acPowerW` into `stepOnce()`/`getState()` under
   a separate assignment. Do not treat this branch as complete K004 controls.
+
+---
+
+## 2026-09-25 02:55:00 +05:30 (IST) — K004-PREP2 implemented (actual, Agent K-B — FreeBuff, feature branch)
+
+- Assignment: K004-PREP2 — environment engine integration on the isolated
+  branch. Developer Kishore Kumar, Agent K-B — FreeBuff. Supporting Kishore
+  batch 4 / approximately 8. Branch-local work: `kishore/k004-environment-prep`,
+  worktree `../simulation-backend-k004`, base `929e78e` unchanged (no merge,
+  rebase, cherry-pick or base update; nothing pushed).
+- Startup: branch resumed from `43aa9fa`; the module was reused, not recreated.
+  `main` still sits at `929e78e` with **uncommitted K-A (K003 export) work** in
+  its working copy (`src/app.ts`, `src/db/connection.ts`, `src/server.ts`,
+  `src/export/`, `src/routes/exports.ts`) — left untouched; no committed
+  divergence exists yet, conflict risk is recorded in the evidence doc.
+- Implemented: `POST /api/v1/environment` (contract `room_id`/`temp_c`/`rh_pct`,
+  closed body) in the existing `/api/v1` router; per-room prescribed climate in
+  the engine; `devices.ac_power_model: "ac-demand-v1"` + assumptions recorded in
+  the immutable run configuration; a single `powerFor()` shared by `stepOnce()`
+  and `getState()`; duration-weighted per-room `room_intervals.avg_temp_c`/
+  `avg_rh_pct`; checkpoint restore that tolerates older state JSON.
+- Legacy separation: a stored config without the model id keeps flat-rated power
+  and constant run-level climate readings, and climate commands are rejected with
+  `409 CONFLICT` (documented decision; reset creates an environment-capable run).
+  No historical reading, run configuration or global policy revision is rewritten.
+- Persistence: **no migration added** (model id in `simulation_runs.config`,
+  climate + accumulators in `engine_checkpoints.state`, existing room-interval
+  columns) so there is no migration-number collision with K003.
+- Verification (actual): full suite **89/89** (77 pre-existing + 12 new: 8 engine,
+  4 HTTP); `typecheck` clean; `lint` 0 errors; `build` exit 0; contract 75/75;
+  schema 24/24. Short real HTTP check on the throwaway-DB listener at
+  127.0.0.1:19001 (started and stopped by this task): 400/404 errors correct, only
+  the addressed room changed, and the interrupted minute published
+  `avg_temp_c 29` / `avg_rh_pct 49` over 50 covered seconds (20 s at 26 °C/55 %,
+  30 s at 31 °C/45 %) — weighting proven end-to-end. No expensive benchmark rerun;
+  no project port left listening.
+- Files: new `docs/K004_ENVIRONMENT_ENGINE_PREP_EVIDENCE.md`,
+  `test/environmentIntegration.test.ts`, `test/environment.http.test.ts`; updated
+  `src/engine/engine.ts`, `src/engine/constants.ts`, `src/routes/simulation.ts`,
+  `src/environment/constants.ts`, `test/engineHelpers.ts`, `docs/ACTIVE_TASK.md`,
+  `docs/HANDOFF.md`, `docs/SIMULATION_ENGINE.md`, this log. No contract, seed,
+  migration, app/server or dependency change.
+- Review status: **pending** (no self-assigned approval). Not merged, not pushed,
+  not deployed; branch and worktree preserved.
+- Next action: coordinate with K-A/K-C; review this branch against the committed
+  K003 export work; decide whether the export contract needs a new version to
+  carry `ac_power_model`/per-room climate; then merge (never force), push `main`
+  normally and assign the frontend environment controls. Until that decision,
+  keep the branch local.
