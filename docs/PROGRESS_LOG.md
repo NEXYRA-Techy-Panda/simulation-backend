@@ -170,3 +170,41 @@ correction entry; do not rewrite history.
 - Next action: commit, push `main`, verify remote hash; return F1-R1 evidence.
   Do not begin F2.
 - Commit references: F1 pushed; F1-R1 recorded after push.
+
+---
+
+## 2026-09-24 19:01:33 +05:30 (IST) — F1-R2 started (actual)
+
+- Layer ID: F1-R2 (canonical repo). F1-R1 completed; review changes_requested
+  after direct inspection of 3000b9d (54/54 confirmed; CSV accepted).
+- Objective: 9dp power precision + fractional checks; V/I semantics;
+  kind-specific policy rules; persist-until-cleared overrides; concrete Python
+  requests; full API paths + health states; version 1.0.1.
+- Startup: no AGENTS.md; clean tree; fetch clean; repo-local identity present.
+- Next action: author corrections in THIS repo's `contracts/v1/`.
+- Review status: pending.
+
+---
+
+## 2026-09-24 19:07:48 +05:30 (IST) — F1-R2 completed (actual)
+
+- Corrections authored, mirrored, verified 75/75 in all five repos.
+- Continuity updated: ACTIVE_TASK completed, HANDOFF F1-R2 addendum,
+  F1_EVIDENCE F1-R2 section. Review pending; no approval claimed.
+- Next action: commit, push `main`, verify remote hash; return F1-R2 evidence.
+  Do not begin F2.
+- Commit references: F1-R1 pushed; F1-R2 recorded after push.
+
+---
+
+## 2026-09-24 19:07:48 +05:30 (IST) — F1-R2 corrections verified in canonical repo (actual)
+
+- Schema 1.0.1 with kind-specific closed rules (+link rule documented in
+  CONTRACT §2.5); power 9dp + fractional checks ×6 intervals; V/I average
+  semantics with constant-fixture label; persist-until-cleared overrides with
+  set/clear payloads; concrete Python A/B requests with bounds (intervals_ref
+  removed); full API paths + scaffold health states; fixtures/envelope at 1.0.1.
+- Result: 75 passed, 0 failed in simulation-backend; manifest regenerated.
+- Next action: mirror to four siblings, verify, update continuity docs,
+  commit + push.
+- Review status: pending. Commit references: F1-R1 pushed; F1-R2 none yet.

@@ -106,3 +106,28 @@ Recorded in the F1 evidence report with verified remote hashes.
   validation still F2). Manifest regenerated; mirror hashes match.
 - Repo-local git identity configured.
 - Commit/push outcome recorded in the F1-R1 evidence report.
+
+---
+
+## F1-R2 corrections (2026-09-24, review pending; version 1.0.1)
+
+- 9dp power precision (12dp energy kept); fractional 7.123456789 W checks at
+  60/300/600/900/1800/3600 s all consistent within 1e-9 kWh; stored energy
+  from unrounded power only.
+- V/I restored to interval-average semantics (product not required); fixture
+  triple labelled constant-fixture check with zero-power guard.
+- Kind-specific closed policy rules in schema + §2.5 docs; device_schedule
+  resolves via explicit office_hours_ref, never guessed.
+- Overrides persist until cleared (`manual_state` set / `clear_override`
+  payloads in API.md); override_seconds meters actual time, not a timeout.
+- Concrete Python A/B requests with inline bounded data (≤2000 intervals,
+  ≤2160 hourly points; REQUEST_TOO_LARGE on excess); intervals_ref removed;
+  ordering/temporal-context note kept.
+- Full API paths (no /v1/v1); scaffold health states (python
+  model_available:false healthy; sim not_initialized with null run; auditor
+  ml_reachable:not_checked until probed).
+- 1.0.1 replaces the unaccepted 1.0.0 prototype; no backward compatibility.
+- Final: 75 passed, 0 failed in all five repos (built-ins only; formal schema
+  validation still not performed — required early F2 check). CSV-alone parity
+  unchanged and green.
+- Commit/push outcome recorded in the F1-R2 evidence report.
