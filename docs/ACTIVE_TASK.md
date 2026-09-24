@@ -13,8 +13,9 @@ K003 — historical JSON/CSV export (resumed under Kishore | K-A — OpenCode).
 
 ## status
 
-in_progress — implementation and focused verification complete; continuity,
-final diff review, commit and push remain.
+completed — implementation, review fixes, focused verification and the task
+implementation commit are complete. Normal publication/remote-hash check
+remains; no review is self-approved.
 
 Review status: pending (never self-approved).
 
@@ -80,8 +81,13 @@ Local frontend :3100 and backend :19001 processes were stopped; ports were
 verified clear. No production simulator command, database, Nginx, PM2,
 webhook or deployment action was used.
 
+## commit reference
+
+- Implementation/evidence commit: `9324d11` (`feat(export): K003 historical JSON
+  and CSV export`), based on `929e78e`.
+- Continuity commit: pending publication.
+
 ## exact next action
 
-Finalize K003 evidence/handoff/README/engine docs, rerun all gates after the
-final diff, inspect staged files, commit and push only backend K003 files, then
-verify the remote hash. Do not begin K004.
+Push the completed backend K003 commits normally, verify `origin/main`, record
+the remote hash, and stop. Do not begin K004.

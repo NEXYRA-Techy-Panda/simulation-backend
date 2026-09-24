@@ -170,3 +170,6 @@ No production database, command, PM2, Nginx, webhook or deployment was touched.
 All test databases/files were under the approved temp directory. K004 must not be
 started from this evidence; Socket.IO, environment/comfort, batch generation,
 faults and scenario comparison remain separate assignments.
+
+Implementation/evidence commit: `9324d11` on top of deployment baseline
+`929e78e`; review remains pending.

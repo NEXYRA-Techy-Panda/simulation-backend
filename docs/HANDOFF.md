@@ -14,6 +14,8 @@
   Pinned auditor `67998d5` pure parsing/validation accepted equivalent real JSON
   and CSV with the same semantic fingerprint. Full auditor DB re-import remains
   unclaimed because the pinned native module could not build without Python.
+- Implementation/evidence commit: `9324d11`; review pending. Continuity and normal
+  push/remote-hash verification remain.
 - No production DB/service/deployment was touched. Evidence:
   [K003_EXPORT_EVIDENCE.md](K003_EXPORT_EVIDENCE.md). Exact next action is final
   diff/staged-file review, normal backend commit/push and remote-hash check; do
