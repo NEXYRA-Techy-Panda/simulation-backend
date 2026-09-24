@@ -6,6 +6,9 @@ export interface Config {
   /** Maximum JSON request body, as an Express size string (e.g. "100kb"). */
   jsonBodyLimit: string;
   shutdownTimeoutMs: number;
+  /** SQLite file (relative paths resolve from the working directory, i.e. the repo root for npm scripts). */
+  databasePath: string;
+  sqliteBusyTimeoutMs: number;
 }
 
 export class ConfigError extends Error {}
@@ -51,5 +54,7 @@ export function loadConfig(env: Env = process.env): Config {
     frontendOrigin: parseOrigin('FRONTEND_ORIGIN', env.FRONTEND_ORIGIN || 'http://localhost:3000'),
     jsonBodyLimit: parseSizeLimit('JSON_BODY_LIMIT', env.JSON_BODY_LIMIT || '100kb'),
     shutdownTimeoutMs: intInRange(env, 'SHUTDOWN_TIMEOUT_MS', 10000, 0, 600000),
+    databasePath: env.DATABASE_PATH || 'data/simulation.sqlite',
+    sqliteBusyTimeoutMs: intInRange(env, 'SQLITE_BUSY_TIMEOUT_MS', 5000, 0, 600000),
   };
 }

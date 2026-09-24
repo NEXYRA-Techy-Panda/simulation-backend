@@ -253,3 +253,41 @@ correction entry; do not rewrite history.
   training, deployment.
 - Next action: commit + push, verify remote; next layer F3 pending its prompt.
 - Commit references: F2-B hash recorded in the F2-B return report.
+
+---
+
+## 2026-09-24 19:48:18 +05:30 (IST) — P002 / F3-S started (actual)
+
+- Assignment P002, layer F3-S, Agent B — Claude Code, owner Mohan.
+- Previous outcome preserved: F2-B completed at `1418f52`; accepted by the
+  architecture lead based on supplied evidence; graceful-shutdown
+  verification outstanding.
+- Ownership: simulation-backend only (Codex: auditor-backend; OpenCode:
+  frontends).
+- Contract note: CONTRACT.md §1 "1.0.0" is a known prose typo; 1.0.1
+  authoritative; contract untouched.
+- Decision: SQLite driver = built-in node:sqlite (Node 24.21.0, SQLite 3.53.4).
+- Next action: implement DB foundation + inventory; verify; commit + push.
+- Review status: pending.
+
+---
+
+## 2026-09-24 19:55:55 +05:30 (IST) — P002 / F3-S completed (actual)
+
+- Layer: F3-S (P002), Agent B — Claude Code. Implementation completed;
+  review pending (never self-assigned).
+- Driver: node:sqlite (Node 24.21.0, SQLite 3.53.4) — no native addon,
+  no install scripts, no new npm dependency.
+- Delivered: connection factory (FK verified, busy timeout, WAL), versioned
+  checksum-guarded migrations, migration 001 (inventory, versioned policies,
+  immutable runs/config/snapshots, interval readings, history), idempotent
+  non-destructive seed (5 rooms, 18 devices, 20 policies), DB-backed
+  GET /api/v1/inventory, health unchanged, IPC graceful shutdown.
+- Results: verifier 75/75; schema 24/24; typecheck/lint/build 0; tests 22/22;
+  CLI migrate/seed twice idempotent; live port 4000 OK; graceful shutdown
+  exit 0 via IPC (OS signal delivery not exercised).
+- Decisions: nominal_power_w = whole group; startup migrates but never
+  seeds; no reset operation; inventory returns latest policy versions.
+- Open: on_windows semantics; node:sqlite stability status.
+- Next action: commit + push; stop after P002.
+- Commit references: P002 hash recorded in the P002 return report.

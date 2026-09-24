@@ -2,7 +2,7 @@
   "name": "simulation-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "NEXYRA simulation authority (F2 scaffold: health route only).",
+  "description": "NEXYRA simulation authority (F3-S: SQLite foundation + inventory API).",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -15,7 +15,10 @@
     "lint": "eslint .",
     "test": "tsx --test test/*.test.ts",
     "verify:contract": "node scripts/verify-contract.mjs",
-    "validate:schema": "node scripts/validate-schema.mjs"
+    "validate:schema": "node scripts/validate-schema.mjs",
+    "db:migrate": "tsx src/cli/migrate.ts",
+    "db:seed": "tsx src/cli/seed.ts",
+    "db:setup": "npm run db:migrate && npm run db:seed"
   },
   "dependencies": {
     "ajv": "8.20.0",

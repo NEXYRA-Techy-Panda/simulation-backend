@@ -2,8 +2,9 @@
 
 ## 0. Continuity and current layer (F0.1, 2026-09-24)
 
-- Current layer: **F2-B** (backend application scaffold) — status
-  **completed**, review **pending** (F1-R2 accepted based on supplied evidence). Contract: **1.0.1 defined** (canonical
+- Current layer: **P002 / F3-S** (SQLite foundation + inventory) — status
+  **completed**, review **pending** (F2-B accepted based on supplied evidence;
+  its graceful-shutdown gap addressed in P002). Contract: **1.0.1 defined** (canonical
   `simulation-backend/contracts/v1/`, mirrored to siblings; replaces the
   unaccepted 1.0.0 prototype, no backward compatibility claimed).
 - Continuity files: [ACTIVE_TASK.md](ACTIVE_TASK.md) and [PROGRESS_LOG.md](PROGRESS_LOG.md).
@@ -80,6 +81,26 @@
   (http://localhost:3000), JSON_BODY_LIMIT (100kb), SHUTDOWN_TIMEOUT_MS (10000).
   Deliberately not implemented: DB/migrations, inventory, simulation state,
   Socket.IO, history/export. Next layer: **F3**, pending its assigned prompt.
+- P002 / F3-S addendum (2026-09-24, Agent B — Claude Code, implementation
+  completed, review **pending**): F2-B accepted based on supplied evidence.
+  Built-in `node:sqlite` (Node 24.21.0, SQLite 3.53.4; no new npm deps).
+  Connection factory (verified FK enforcement, busy_timeout, WAL,
+  idempotent close); versioned checksum-guarded forward-only migrations
+  (`schema_migrations`); migration 001 STRICT tables: buildings, rooms,
+  devices, policies (+ owner), immutable contiguous policy_versions, runs with
+  immutable config, immutable run_rooms/run_devices/run_policies snapshots,
+  room/device interval readings (contract keys, FKs to run snapshots, CHECKs;
+  no fault-label columns). Idempotent non-destructive seed: 5 rooms, 18
+  devices, 20 policies (nominal power = whole group; workstation 960 W × qty 8
+  informational). `GET /api/v1/inventory` DB-backed; health unchanged.
+  Startup migrates, never seeds or resets. Commands: `npm run db:setup` |
+  `db:migrate` | `db:seed`. Env: DATABASE_PATH (data/simulation.sqlite),
+  SQLITE_BUSY_TIMEOUT_MS (5000). Checks: verifier 75/75, schema 24/24,
+  typecheck/lint/build 0, tests 22/22; live port-4000 check; graceful
+  shutdown verified via IPC "shutdown" (OS-signal delivery not exercised).
+  Evidence: [P002_F3_S_EVIDENCE.md](P002_F3_S_EVIDENCE.md). Open: on_windows
+  semantics, node:sqlite stability status. Not implemented: clock, occupancy,
+  commands, Socket.IO, history, export, fault injection.
 
 ## 1. Purpose and owner
 
