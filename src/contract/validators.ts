@@ -53,6 +53,19 @@ export const isPolicyKind = (kind: string): kind is PolicyKind => Object.hasOwn(
 export function assertRules(kind: PolicyKind, rules: unknown): void {
   check(rulesDefs[kind], rules, `${kind} rules`);
 }
+/**
+ * Validates a complete dataset envelope (the contract's top-level document)
+ * against contract 1.0.1. Structural validation only: cross-record arithmetic,
+ * reference integrity, key uniqueness and effective-time semantics are
+ * semantic checks and remain the caller's responsibility.
+ */
+export const assertDataset = (dataset: unknown): void => {
+  const fn = ajv.getSchema(schema.$id);
+  if (!fn) throw new Error('Contract schema root is not registered');
+  if (!fn(dataset)) {
+    throw new ContractValidationError('dataset envelope', (fn.errors ?? []).map((e) => `${e.instancePath || '/'} ${e.message ?? e.keyword}`));
+  }
+};
 export const assertRoom = (room: unknown): void => check('/properties/rooms/items', room, 'room');
 export const assertDevice = (device: unknown): void => check('/properties/devices/items', device, 'device');
 export const assertPolicy = (policy: unknown): void => check('/properties/policies/items', policy, 'policy');

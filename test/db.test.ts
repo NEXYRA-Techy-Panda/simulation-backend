@@ -63,8 +63,9 @@ describe('migrations', () => {
     withFileDb((path) => {
       const db = openDatabase(path);
       try {
-        assert.deepEqual(runMigrations(db), { applied: [1, 2], currentVersion: 2 });
-        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 2 });
+        // K002 adds migration 3 (run-scoped policy activation).
+        assert.deepEqual(runMigrations(db), { applied: [1, 2, 3], currentVersion: 3 });
+        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 3 });
         const tables = (db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name").all() as { name: string }[])
           .map((r) => r.name);
         for (const t of ['buildings', 'rooms', 'devices', 'policies', 'policy_versions', 'simulation_runs', 'run_rooms',

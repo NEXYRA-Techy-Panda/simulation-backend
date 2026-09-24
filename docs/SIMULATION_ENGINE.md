@@ -176,19 +176,32 @@ A device's **automatic** state at step start `t`:
    pause/restart.
 4. **At the boundary:** in the same transaction as the completed minute
    (published with the **old** references), the versions are appended to the
-   run's `run_policies`. Existing snapshot rows are never changed. The engine
-   then uses them from that minute onward.
+   run's `run_policies` with `active_from_utc` = that boundary. Existing
+   snapshot rows are never changed. The engine then uses them from that minute
+   onward.
 5. **History:** earlier intervals keep their references (e.g.
    `pol-open-ac:1`); later ones reference the new versions (e.g.
    `pol-open-ac:2`).
 
 - **Inventory** (`GET /api/v1/inventory`) shows the latest versions
   immediately, including a pending one with a future `effective_from_utc`.
-- **Limitation:** a run created later (reset) pins the latest versions from
-  its own start, even though their `effective_from_utc` came from the earlier
-  run's timeline.
+- **Run-scoped activation** (K002). A policy version has two times:
+  - `policy_versions.effective_from_utc` — **revision identity**: when the
+    immutable revision was created on the global revision history. Immutable,
+    never edited.
+  - `run_policies.active_from_utc` — **activation within a run**: the instant,
+    on this run's timeline, from which the pinned revision governed the run.
+    Every revision adopted when a run is created activates at the run's start;
+    a revision minted mid-run activates at the minute boundary where it takes
+    effect. `device_schedule.office_hours_ref` resolves to the office-hours
+    revision pinned in the same run, so a run's references and effective times
+    agree with what it actually applied.
 - **No run yet:** occupancy, calendar and device commands need a run (409).
   Use reset to create a paused run first.
+- **Pre-K002 runs** (pins without a recorded activation) are identified as
+  `legacy_unrecorded` and validated against `effective_from_utc` instead; an
+  inconsistent one stays invalid for export rather than being rewritten. See
+  [K002_POLICY_TIMING_EVIDENCE.md](K002_POLICY_TIMING_EVIDENCE.md).
 
 ## Energy, minute persistence, checkpoints (unchanged semantics)
 

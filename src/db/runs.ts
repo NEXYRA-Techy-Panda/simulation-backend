@@ -15,7 +15,13 @@ export interface NewRun {
  * Creates a run and, atomically, its immutable snapshot of the building's
  * current rooms, devices and exact current policy versions. Later edits to
  * current inventory or new policy versions never change what this run means.
- * Used by the future simulation engine; F3-S only exercises it in tests.
+ *
+ * K002: each pinned revision also records its RUN-SCOPED activation, which for
+ * a newly created run is the run's own start. A run adopts the current
+ * configuration from its first instant, so its activation metadata must say so
+ * even when the revision's global effective_from_utc lies later in a previous
+ * run's timeline (the run-policy timing defect). The global revision time is
+ * left untouched: it identifies the revision, not its activation in this run.
  */
 export function createRun(db: Database, run: NewRun, now: Date = new Date()): void {
   transaction(db, () => {
@@ -39,12 +45,14 @@ export function createRun(db: Database, run: NewRun, now: Date = new Date()): vo
         FROM devices d JOIN rooms r ON r.room_id = d.room_id WHERE r.building_id = ?`)
       .run(run.run_id, run.building_id);
 
-    db.prepare(`INSERT INTO run_policies (run_id, policy_id, version)
-        SELECT ?, c.policy_id, c.version FROM current_policy_versions c
+    // Run-scoped activation: every revision adopted at creation is active from
+    // the run's start (params bind in SELECT order: run_id, activation, building).
+    db.prepare(`INSERT INTO run_policies (run_id, policy_id, version, active_from_utc)
+        SELECT ?, c.policy_id, c.version, ? FROM current_policy_versions c
         LEFT JOIN rooms r ON r.room_id = c.room_id
         LEFT JOIN devices d ON d.device_id = c.device_id
         LEFT JOIN rooms dr ON dr.room_id = d.room_id
         WHERE ? IN (c.building_id, r.building_id, dr.building_id)`)
-      .run(run.run_id, run.building_id);
+      .run(run.run_id, run.run_start_utc, run.building_id);
   });
 }

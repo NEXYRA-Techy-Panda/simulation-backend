@@ -2,26 +2,29 @@
 
 ## Assignment / Layer ID
 
-K001 — K0 (setup and onboarding). Prompt previously issued as P018; renamed to
-K001 before execution (no P018 record existed; history not rewritten).
+K002 — K1 (contract checkout portability and run-policy timing).
 Agent: **K — Kishore's coding agent**. Owner: **Kishore Kumar**.
-Category: simulator handoff and local setup.
+Category: simulator implementation, tests and documentation.
 
 ## Scope (this repository)
 
-Setup, handoff reading, baseline verification and documentation ONLY:
-workspace/repo reuse, toolchain and `node:sqlite` checks, database
-setup/isolation, the repository's own verification commands, real HTTP
-lifecycle checks on a scratch database, plus
-`docs/K001_KISHORE_ONBOARDING_EVIDENCE.md`, `docs/HANDOFF.md`,
-`docs/ACTIVE_TASK.md`, `docs/PROGRESS_LOG.md`.
-**No** application source, migration, contract, schema, seed or lockfile
-change. **No** remaining simulator feature started. The run-policy timing
-defect was located and reproduced but **not** fixed.
+Two workstreams and their evidence:
+
+1. Restore exact contract verification on Windows **without** weakening hashes
+   (targeted `.gitattributes`, restore the confirmed-unmodified hashed paths from
+   their exact blobs).
+2. Fix new runs applying policy versions before their recorded activation, while
+   preserving all previous run history.
+
+Permitted writes: simulator implementation, tests, migrations and documentation.
+**No** contract/schema/fixture change, **no** Socket.IO, export implementation,
+environment controls, animations or new frontend features. Frontend changes are
+line-ending configuration and documentation only. Mohan's three repositories and
+parent files were not touched. No force-push, reset or history discard.
 
 ## Task status
 
-completed (setup and onboarding)
+completed (both workstreams; simulator and export pipeline are **not** complete)
 
 ## Review status
 
@@ -29,82 +32,77 @@ pending (never self-assigned)
 
 ## Previous task outcome (preserved)
 
-P010 documentation completed with review pending (P008 occupancy/schedule
-behaviour accepted based on supplied evidence). The run-policy timing defect
-remains open — it is required before final historical-export acceptance and is
-not an accepted limitation. Recorded in `docs/PROGRESS_LOG.md`.
+- **K001 (K0 — setup and onboarding): completed, review pending.** Setup,
+  baseline verification and documentation only; no source/migration/contract
+  change. Evidence: `docs/K001_KISHORE_ONBOARDING_EVIDENCE.md`. It recorded the
+  open policy-timing defect, the CRLF verifier mismatch and the pending browser
+  checks. Its commit `1f43a5e` is published.
+- **P010 documentation:** completed with review pending (P008
+  occupancy/schedule behaviour accepted based on supplied evidence).
+- The K001-discovered tasks (LF portability, policy timing) are the K002 work
+  below.
 
 ## Current branch
 
-`main`, clean. HEAD before this task's work: `12c380022cbe5ad813309f29ca4c61fbf6099580`
-(== the reported P010 handoff baseline == `origin/main`; `git fetch --all`
-clean; `ls-remote --heads origin` matches). No fast-forward was needed and the
-repository was reused, not re-cloned. The K001 documentation commit is made on
-top of that baseline.
+`main`. HEAD at the start of K002 implementation:
+`f7b134bfed86e6a56dafc335c512d61e82c403b1` (the K001 line-ending commit), equal
+to `origin/main` after K001 was pushed. `git fetch` was clean. K002's own commits
+are made on top of that.
 
 ## Last checkpoint timestamp, including timezone
 
-2026-09-24 22:50:00 +05:30 (IST) — K001 verification complete; documentation
-written; committing documentation only.
+2026-09-24 23:23:00 +05:30 (IST) — K002 implementation, tests and checks
+complete; documentation written; committing.
 
 ## Applicable contract version
 
-1.0.1 (mirrored, read-only; `contracts/v1/**` and `scripts/verify-contract.mjs`
-were not edited).
+1.0.1 (mirrored, read-only; `contracts/v1/**`, its schema/fixtures and
+`scripts/verify-contract.mjs` content were not edited — only their checkout
+attributes).
 
 ## Environment (this laptop)
 
 Windows 11 build 26200, Git Bash; git `2.55.0.windows.4`, node `v24.19.0`,
-npm `11.17.0` (satisfies `engines: >=24.0.0` and `.nvmrc`); `node:sqlite`
-present; ports 3000/4000 free. `npm ci` → 0 vulnerabilities (npm 11 blocked the
-esbuild postinstall; `tsx` v4.23.15 still works). No dependency upgrade and no
-lockfile regeneration.
+npm `11.17.0`. `core.autocrlf=true` comes from the **system** Git config
+(`file:C:/Program Files/Git/etc/gitconfig`); no global Git configuration was
+changed.
 
 ## Completed work
 
-1. Renaming continuity: confirmed no P018/K001 record existed in either
-   simulator repository; no amendment needed.
-2. Startup checks: no `AGENTS.md`; correct origin/branch/HEAD, clean tree,
-   fetch clean, Kishore's repo-local identity; the three Mohan-owned repos in
-   the same parent folder were left untouched.
-3. Read the full handoff and context set (both repos) plus this repo's
-   KISHORE_BACKEND_HANDOFF, SIMULATION_ENGINE, P002/P004/P008 evidence and the
-   shared contract.
-4. Database: `data/` did not exist; `npm run db:setup` twice → idempotent
-   (migrations 1,2 / schema v2 / 5 rooms / 18 devices / 20 policies; second run
-   inserted 0). All mutations used scratch databases in the OS temp area.
-5. Verification: `validate:schema` 24/24, `typecheck` 0, `lint` 0,
-   `npm test` **56/56**, `npm run build` 0, `verify:contract` **67/75**
-   (8 line-ending manifest hash failures — recorded, not fixed).
-6. Live HTTP on the compiled build with a scratch database: health (CORS ok),
-   inventory 5/18/20, no-run state without invented zeros, start/pause
-   (frozen)/resume/speed, lighting override + clear back to policy, reset with
-   the previous run preserved, restart recovery paused, IPC shutdown exit 0,
-   POST preflight 204.
-7. Reproduced the open run-policy timing defect with concrete timestamps and
-   located the affected source.
+1. **LF portability:** added the two-rule `.gitattributes` to both simulator
+   repositories; restored `contracts/v1/**` + `scripts/verify-contract.mjs` from
+   their exact blobs after confirming no edits would be lost. Working tree and a
+   fresh clone (inheriting `core.autocrlf=true`) both show 0 CR bytes and
+   **75/75** in each repository. Contract semantics, the manifest and every hash
+   check are unchanged. Recommendation recorded for Mohan's three mirrors.
+2. **Run-policy timing:** forward migration
+   `003_run_policy_activation` adds `run_policies.active_from_utc` (run-scoped
+   activation) plus a `BEFORE INSERT` trigger requiring a UTC value.
+   `createRun` activates pinned revisions at the run's start; mid-run calendar
+   and occupancy changes activate at their boundary; `rebuildPolicies` resolves
+   `device_schedule.office_hours_ref` to the office-hours revision pinned in the
+   same run. `policy_versions.effective_from_utc` remains the immutable revision
+   identity and is never edited.
+3. **History preservation:** existing pins keep `NULL` (no backfill). Such runs
+   are identified as `legacy_unrecorded` and validated against the global
+   revision times; an inconsistent pre-K002 run stays **invalid for export**
+   rather than being rewritten.
+4. **Verification:** `npm test` **61/61** (56 pre-existing + 5 new),
+   `typecheck` / `lint` / `build` exit 0, `validate:schema` 24/24,
+   `verify:contract` 75/75.
+5. **Real HTTP reproduction** on a scratch database (compiled build, port 4173):
+   calendar change in run A activated at `2025-12-31T21:06:00Z`; run A kept v1
+   before it and v2 from it; a reset run B starting `2025-12-31T18:30:00Z` pinned
+   the same revision active from its own start with the global identity
+   untouched (0 pins without activation, 0 intervals applying a policy before
+   its activation, 11/11 dependent schedules resolving, no new revision minted);
+   restart recovered run B paused at its checkpointed time with identical pins.
 
-## Open blocker (recorded, NOT fixed in K001)
+## Open blocker (recorded)
 
-Run-relative policy effective times: after a calendar change in one run, a
-`reset` creates a new run that starts earlier (fixed initial time) while
-immediately applying policy versions whose `effective_from_utc` lies later in
-the previous run's timeline; the new run pins no earlier version at all.
-Reproduced on this laptop (`pol-office-hours:2` effective
-`2025-12-31T19:34:00Z` applied by a run starting `2025-12-31T18:30:00Z`).
-Source anchors: `src/engine/engine.ts:351-371`, `src/db/runs.ts:20`/`:42-47`,
-`src/engine/engine.ts:630`/`:642-646`, `src/engine/constants.ts:13`,
-`src/db/inventory.ts:99`, `src/db/migrations/001_initial.ts:84`.
-Details: `docs/K001_KISHORE_ONBOARDING_EVIDENCE.md` §11 and
-`docs/KISHORE_BACKEND_HANDOFF.md` §6.
-
-## Reported mismatch (not fixed)
-
-`verify:contract` reports 67/75 on this laptop; all 8 failures are manifest
-`hash match:` byte mismatches caused by `core.autocrlf=true` with no
-`.gitattributes`. LF-normalised hashes reproduce the manifest values exactly,
-so the contract content is correct. Remediation options are in the K001
-evidence §8; changing repo/config files was out of scope for a setup task.
+None for publishing. Remaining work is **not** an accepted completeness claim:
+the production export endpoint is not implemented, browser verification was not
+possible in this session, and pre-K002 inconsistent runs stay unsupported.
 
 ## F6 status
 
@@ -113,17 +111,19 @@ export/import integration remain separate work.
 
 ## Exact next action
 
-Implement the run-policy timing correction (KISHORE_BACKEND_HANDOFF.md §6 /
-K001 evidence §11) as the next assigned K-layer, including the regression test
-for a new 1 January run after a prior schedule change. Do not start Socket.IO,
-exports, environment/comfort, faults or other features until assigned.
+Implement the historical export endpoint (`POST/GET /api/v1/export`, contract's
+self-contained CSV/JSON formats) so a run's stored snapshots and readings can be
+served as a contract-1.0.1 dataset with run-scoped effective times, and validate
+it against `energy-ml-service` `POST /v1/analyze`. Do not start Socket.IO,
+environment/comfort, faults or other features until assigned.
 
 ## Processes started by this task
 
-None remaining. Port 4000 has no `LISTENING` socket. Scratch databases remain
-in this laptop's temp area (`…\Temp\nexyra-k001\`) for inspection.
+None remaining. Port 4173 has no `LISTENING` socket (the two servers started for
+the HTTP reproduction were stopped). Scratch databases remain in this laptop's
+temp area (`…\Temp\nexyra-k002\`) for inspection.
 
 ## Commit reference
 
-Base: `12c3800`. K001 docs: the commit containing this file (hash recorded in
-the K001 return report after push).
+Base: `f7b134b`. K002: the commit containing this file (hash recorded in the
+K002 return report after push).

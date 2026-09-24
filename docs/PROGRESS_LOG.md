@@ -491,3 +491,87 @@ correction entry; do not rewrite history.
   §6 / K001 evidence §11) as the next assigned K-layer, with the January-1-after-
   a-schedule-change regression test. Do not start Socket.IO, exports, comfort or
   other features until assigned.
+
+---
+
+## 2026-09-24 23:23:00 +05:30 (IST) — K002 completed (implemented)
+
+- Assignment K002 (K1 — contract checkout portability and run-policy timing),
+  Agent K — Kishore's coding agent, owner Kishore Kumar. Writes: backend
+  implementation/tests/migrations/docs; frontend line-ending config + docs only.
+  No contract, schema, fixture, Socket.IO, export or environment work. Mohan's
+  three repos untouched.
+- Git access: **write access now works**; K001's commits were published earlier
+  this session (backend `1f43a5e`, frontend `f2cdffe`), `fetch` clean, no remote
+  advancement, no force push/reset.
+- Before: HEAD `f7b134b` (K001 line-ending commit), clean tree.
+- (a) Line-ending portability: `core.autocrlf=true` confirmed from the **system**
+  config (`file:C:/Program Files/Git/etc/gitconfig`); the verifier hashes raw
+  bytes (`scripts/verify-contract.mjs`). Added `.gitattributes` (two rules:
+  `contracts/v1/** text eol=lf`, `scripts/verify-contract.mjs text eol=lf`) to
+  both simulator repos, then restored those paths from their exact blobs after
+  confirming no edits would be lost (no broad reset/clean). Result: 0 CR bytes
+  in both working trees and **75/75** in both repos; a **fresh temp clone** that
+  inherits `core.autocrlf=true` also checked out 0 CR bytes and passed 75/75.
+  Contract semantics, manifest and all eight hash checks unchanged. Same two
+  rules recommended for `auditor-frontend`/`auditor-backend`/`energy-ml-service`
+  (not modified).
+- (b) Run-policy timing: forward migration `003_run_policy_activation` adds
+  `run_policies.active_from_utc` (run-scoped activation) plus a `BEFORE INSERT`
+  trigger rejecting a missing/malformed/non-calendar value. Design: keep
+  `policy_versions.effective_from_utc` as the immutable **revision identity** and
+  represent **activation within a run** in the run's frozen snapshot — a
+  revision adopted at run creation activates at the run's start
+  (`createRun`), a mid-run calendar/occupancy change at its minute boundary
+  (`applyDuePending`/occupancy pin). `rebuildPolicies` resolves
+  `device_schedule.office_hours_ref` to the office-hours revision pinned in this
+  run, so a run's references and effective times agree with what it applied. No
+  global revision is edited or minted to work around run timing.
+- History: existing pins keep `NULL` (no backfill, rows immutable). Such runs
+  are identified as `legacy_unrecorded` and validated against the global
+  revision times; the test builds a genuine pre-K002 DB (migration 3 undone) with
+  a consistent and an inconsistent legacy run and shows the bad one stays
+  flagged/unsupported while the good one validates — `runMigrations` reports
+  `{ applied: [3], currentVersion: 3 }` and nothing is rewritten or re-certified.
+- Tests: added `test/policyTiming.test.ts` + `test/runDataset.ts` (contract
+  1.0.1-shaped dataset built **in a test** from stored snapshots/readings, schema
+  validated with the new `assertDataset`, then checked semantically: reference
+  integrity, dependency resolution, no-policy-before-its-activation, key
+  uniqueness, aligned grid, energy reconciliation). `test/db.test.ts` migration
+  expectations updated to `{ applied: [1, 2, 3], currentVersion: 3 }`.
+- Checks: `npm test` **61/61** (56 pre-existing + 5 new), `typecheck` 0,
+  `lint` 0, `build` 0, `validate:schema` 24/24, `verify:contract` 75/75.
+- Real HTTP (scratch DB `…\Temp\nexyra-k002\scratch.sqlite`, compiled build, port
+  4173): run A `run-20260924T174514Z-e497fa98` started `18:30:00Z`;
+  `POST /calendar` → applied, effective `2025-12-31T21:06:00Z`, 12 refs; run A
+  kept v1 before it and v2 from it (`dev-open-ac` 21:05 `pol-open-ac:1`,
+  21:06 `pol-open-ac:2`). `reset` → run B `run-20260924T174534Z-69d01154` at
+  `18:30:00Z`; run B pinned `pol-office-hours:2`/`pol-open-ac:2` with
+  `active_from_utc 2025-12-31T18:30:00Z` while their global
+  `effective_from_utc` stayed `2025-12-31T21:06:00Z` — 0 pins without
+  activation, 0 intervals applying a policy before its activation, 11/11
+  dependent schedules resolving, no new revision minted (32 versions = 20 seeded
+  + 12), and `dev-open-ac` 21:05/21:06/21:07 all `pol-open-ac:2`. Run A's 6102
+  intervals unchanged. Restart on the same DB: recovered run B **paused** at
+  `2025-12-31T20:26:30Z` (seq 701) with identical pins; resuming across 21:06
+  minted nothing.
+- Honest notes: the HTTP stop was a forced kill — Windows cannot deliver
+  SIGTERM/SIGINT cross-process (the service documents an IPC `shutdown`
+  mechanism instead); the graceful path is covered by the passing graceful
+  shutdown test. **Browser verification still not performed** (no browser in
+  this session). The export endpoint and `energy-ml-service` acceptance run were
+  **not** built/run, so no Python acceptance is claimed.
+- Files changed: new `src/db/migrations/003_run_policy_activation.ts`; modified
+  `src/db/migrations/index.ts`, `src/db/runs.ts`, `src/engine/engine.ts`,
+  `src/contract/validators.ts`, `test/db.test.ts`; new `test/policyTiming.test.ts`,
+  `test/runDataset.ts`, `docs/K002_POLICY_TIMING_EVIDENCE.md`; updated
+  `docs/SIMULATION_ENGINE.md`, `docs/KISHORE_BACKEND_HANDOFF.md`,
+  `docs/ACTIVE_TASK.md`, `docs/HANDOFF.md`, this log. `.gitattributes` was
+  already committed. No `.env`, DB, cache, dependency or build output committed.
+- Processes: none remaining; port 4173 has no listener.
+- Review status: pending (no self-assigned approval). Commit references: the K002
+  commits recorded in the K002 return report after push.
+- Next action: implement the historical export endpoint on top of the run-scoped
+  activation (contract CSV/JSON), then validate a run's dataset against
+  `energy-ml-service` `POST /v1/analyze`. Do not start Socket.IO, environment/
+  comfort, faults or other features until assigned.

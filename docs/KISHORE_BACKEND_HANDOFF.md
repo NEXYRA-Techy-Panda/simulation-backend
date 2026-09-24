@@ -169,14 +169,16 @@ Treat those examples as the reference for frontend work.
 - **Overnight windows** belong to their opening day. `open == close` is
   rejected.
 
-## 6. UNRESOLVED CORRECTNESS ISSUE — required before final historical-export acceptance
+## 6. RESOLVED (K002) — run-relative policy effective times
 
-> **Run-relative policy effective times: a new run may start before the
-> effective_from timestamps of policy versions inherited from an earlier run,
-> while applying those versions immediately.**
+> **Was:** a new run could start before the `effective_from_utc` timestamps of
+> policy versions inherited from an earlier run, while applying those versions
+> immediately.
 
-This is an **open defect**, not an accepted limitation. It must be resolved
-**before final historical-export acceptance**. P010 did not fix it.
+**Resolved in K002** (Agent K — Kishore's coding agent) with run-scoped
+activation. This section keeps the mechanism for reference and records the
+resolution. Evidence:
+[K002_POLICY_TIMING_EVIDENCE.md](K002_POLICY_TIMING_EVIDENCE.md).
 
 ### Mechanism
 
@@ -194,24 +196,30 @@ This is an **open defect**, not an accepted limitation. It must be resolved
    400 ("a future policy cannot apply retroactively"). That is correct, and
    it means affected exports cannot be analysed until this is fixed.
 
-### Required future resolution
+### Resolution (K002)
 
-- **Semantics:** define a **run-scoped activation baseline**, or equivalent
-  explicit semantics, for the versions a run inherits at creation. For
-  example, record per run which version is active from the run's start, and
-  what its run-relative activation time is. Alternatively, mint run-start
-  versions whose `effective_from_utc` equals the new run's start.
-- **History:** **preserve prior-run history**. Run A's versions, pins and
-  intervals must not change. Do not rewrite immutable policy versions or
-  snapshots, and do not edit applied migrations. Use a forward migration if
-  the schema needs to change.
-- **Exports:** make the **exported policy effective times agree with actual
-  application** in every run (JSON envelope and CSV metadata).
-- **Regression test:** start a **new run at January 1 after a prior run
-  changed schedules later in its own timeline**. Assert that the new run's
-  exported policies are effective at or before every interval that
-  references them, that the prior run's history is unchanged, and that
-  `energy-ml-service` `POST /v1/analyze` accepts the new run's data.
+- **Semantics:** run-scoped activation. `run_policies.active_from_utc` records,
+  per run, the instant from which a pinned revision governed **that** run —
+  the run's start for a revision adopted at creation, the minute boundary for a
+  revision minted mid-run. `policy_versions.effective_from_utc` stays the
+  immutable **revision identity** (which run's timeline produced it) and is
+  never edited. A revision a run inherits keeps its identity while its
+  run-scoped activation is its start.
+- **History:** prior runs are untouched. Migration 003 only **adds** the column;
+  existing pins keep `NULL`, meaning "activation not recorded". Such runs are
+  identified as `legacy_unrecorded` and validated against the global revision
+  times; an inconsistent one stays **invalid for export** rather than being
+  backfilled or rewritten. Migrations 001/002 were not edited.
+- **Dependencies:** `device_schedule.office_hours_ref` now resolves to the
+  office-hours revision pinned in the same run, so references and effective
+  times agree with actual application.
+- **Regression test / dataset:** a new run at January 1 after a prior run's
+  later-timeline change is asserted to reference only revisions effective at or
+  before each interval, with the prior run's history unchanged, and a
+  contract-1.0.1-shaped dataset is built **in a test** and schema-validated.
+  The production export endpoint is **still not implemented**, and
+  `energy-ml-service` `POST /v1/analyze` acceptance was **not** run (schema
+  validity alone does not prove effective-time semantics).
 
 ## 7. Known limitations (accepted for now)
 
@@ -229,15 +237,14 @@ This is an **open defect**, not an accepted limitation. It must be resolved
   contract's occupancy rules are closed.
 - A crash can lose under one simulated minute. Linux SIGTERM has not been
   exercised.
-- The run-policy timing defect is **not** in this list (see §6: open and
-  required).
+- The run-policy timing defect was **resolved** in K002 (§6); it is no longer
+  an open correctness issue.
 
 ## 8. Remaining simulator work (Kishore)
 
 None of this is implemented:
 
-1. **Run-policy timing correction** (§6), required before final
-   historical-export acceptance.
+1. ~~Run-policy timing correction~~ — **done in K002** (§6).
 2. **Socket.IO delivery and recovery:** `state.update` keyed by `seq`,
    command acks, replay/snapshot fallback (contract API.md).
 3. **Environment and comfort controls:** room temperature/humidity commands
@@ -256,5 +263,6 @@ None of this is implemented:
   deterministic vacant-beyond-grace rule (`method: "rule"`; no model). It
   takes at most 2,000 device and 2,000 room intervals per request, so
   exports must be windowed with preceding context by the auditor.
-- **auditor-backend** (Codex): implementing imports. Exports must satisfy
-  the contract and the §6 correction before historical data is accepted.
+- **auditor-backend** (Codex): implementing imports. Exports must satisfy the
+  contract and the §6 run-scoped activation semantics (implemented in K002);
+  pre-K002 runs flagged `legacy_unrecorded` remain unsupported.

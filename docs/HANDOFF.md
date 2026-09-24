@@ -190,6 +190,34 @@
   [K001_KISHORE_ONBOARDING_EVIDENCE.md](K001_KISHORE_ONBOARDING_EVIDENCE.md).
   Browser verification not performed (no browser in session); manual checklist
   recorded there. No process left running; ports free.
+- K002 addendum (2026-09-24, Agent K — Kishore's coding agent, implementation +
+  tests + docs, review **pending**): K001's two findings are addressed. (a)
+  **Checkout portability**: `.gitattributes` added to both simulator repos
+  pinning `contracts/v1/**` and `scripts/verify-contract.mjs` to LF, merged with
+  (not overwriting) existing attributes; the confirmed-unmodified hashed paths
+  were restored from their exact blobs; `core.autocrlf=true` (from the system
+  Git config) now no longer converts them — 0 CR bytes and **75/75** in both
+  repos, including a fresh clone, with contract semantics, the manifest and
+  every hash check unchanged. The same two rules are recommended for Mohan's
+  three mirrors (not modified). (b) **Run-policy timing**: forward migration
+  `003_run_policy_activation` adds `run_policies.active_from_utc` = the
+  **run-scoped activation** distinct from `policy_versions.effective_from_utc`
+  = the immutable **revision identity**; a revision adopted at run creation
+  activates at the run's start, a mid-run change at its minute boundary;
+  `device_schedule.office_hours_ref` resolves to the office-hours revision
+  pinned in the same run; a `BEFORE INSERT` trigger refuses a missing/invalid
+  activation. Existing pins keep `NULL` (no backfill) and are identified as
+  `legacy_unrecorded`; an inconsistent pre-K002 run stays invalid for export
+  rather than being rewritten. Checks: `npm test` **61/61** (56 pre-existing +
+  5 new), typecheck/lint/build 0, `validate:schema` 24/24, `verify:contract`
+  75/75; live HTTP on a scratch DB (calendar change in run A activated
+  `2025-12-31T21:06:00Z`; reset run B starting `2025-12-31T18:30:00Z` pinned
+  that revision active from its own start with the global identity untouched —
+  0 pins without activation, 0 intervals applying a policy before its
+  activation, 11/11 dependent schedules resolving, run A unchanged; restart
+  recovered paused at the checkpointed time). Remaining, **not** implemented:
+  export endpoint, `energy-ml-service` acceptance run, browser checks.
+  Evidence: [K002_POLICY_TIMING_EVIDENCE.md](K002_POLICY_TIMING_EVIDENCE.md).
 
 ## 1. Purpose and owner
 

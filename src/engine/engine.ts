@@ -321,7 +321,7 @@ export class SimulationEngine {
           policy_id: run.occupancyPolicy.policy_id, effective_from_utc: toUtc(run.simEpoch), rules: { mode, auto_allocate: true },
         }, this.wallClock());
         const ref = { policy_id: run.occupancyPolicy.policy_id, version };
-        this.pin(run, [ref]);
+        this.pin(run, [ref], run.simEpoch);
         run.occupancyPolicy = ref;
         policyRef = refString(ref);
       }
@@ -474,19 +474,27 @@ export class SimulationEngine {
     const due = run.pending.filter((p) => p.effective_epoch <= run.simEpoch);
     if (!due.length) return;
     run.pending = run.pending.filter((p) => p.effective_epoch > run.simEpoch);
-    this.pin(run, due.flatMap((p) => p.refs));
+    // Each change activates on its own boundary, so a run-scoped activation is
+    // recorded per change rather than for the batch as a whole.
+    for (const p of due) this.pin(run, p.refs, p.effective_epoch);
     this.rebuildPolicies(run);
   }
 
-  /** Adds versions to the run's pinned set (idempotent; snapshot rows are never changed). */
-  private pin(run: RunRuntime, refs: PolicyRef[]): void {
+  /**
+   * Adds versions to the run's pinned set with their run-scoped activation
+   * (idempotent; snapshot rows are never changed, and the FIRST activation
+   * recorded for a pin wins — ON CONFLICT DO NOTHING).
+   */
+  private pin(run: RunRuntime, refs: PolicyRef[], activeFromEpoch: number): void {
     const relevant = new Set([
       ...run.devices.map((d) => d.policy.policy_id),
       ...(run.officeHours ? [run.officeHours.policy_id] : []),
       ...(run.occupancyPolicy ? [run.occupancyPolicy.policy_id] : []),
     ]);
-    const stmt = this.db.prepare('INSERT INTO run_policies (run_id, policy_id, version) VALUES (?, ?, ?) ON CONFLICT DO NOTHING');
-    for (const r of refs) if (relevant.has(r.policy_id)) stmt.run(run.run_id, r.policy_id, r.version);
+    const stmt = this.db.prepare(`INSERT INTO run_policies (run_id, policy_id, version, active_from_utc)
+        VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`);
+    const activeFromUtc = toUtc(activeFromEpoch);
+    for (const r of refs) if (relevant.has(r.policy_id)) stmt.run(run.run_id, r.policy_id, r.version, activeFromUtc);
   }
 
   /** Writes the current partial interval as interval rows and starts a fresh accumulator. */
@@ -701,7 +709,15 @@ export class SimulationEngine {
     return (row ? (JSON.parse(row.rules) as { mode?: OccupancyMode }).mode : undefined) ?? 'manual';
   }
 
-  /** Resolves each device's, the office-hours and the occupancy policy from the highest version pinned to the run. */
+  /**
+   * Resolves each device's, the office-hours and the occupancy policy from the
+   * highest version pinned to the run (a revision is pinned exactly when it
+   * activates, so the highest pinned version is the one in force).
+   *
+   * K002: the run-scoped activation on the pin — not the global revision time —
+   * is what makes a revision applicable to this run, and office-hours
+   * dependencies resolve to the exact revision pinned in THIS run.
+   */
   private rebuildPolicies(run: RunRuntime): void {
     const pinned = this.db.prepare(`SELECT p.policy_id, p.kind, p.device_id, p.building_id, p.room_id, pv.version, pv.rules
         FROM run_policies rp
@@ -715,7 +731,22 @@ export class SimulationEngine {
     const occ = pinned.find((p) => p.kind === 'occupancy');
     run.occupancyPolicy = occ ? { policy_id: occ.policy_id, version: occ.version } : null;
 
+    // Office-hours dependencies resolve to the exact revision pinned in THIS
+    // run, so device_schedule.office_hours_ref never reaches outside the run's
+    // own definitions. Only a ref that is not pinned here (possible solely in a
+    // pre-K002 run) falls back to the global revision record.
+    const pinnedOfficeHours = new Map<string, OfficeHoursRules>();
+    const onRows = this.db.prepare(`SELECT pv.policy_id, pv.version, pv.rules FROM run_policies rp
+        JOIN policies p ON p.policy_id = rp.policy_id
+        JOIN policy_versions pv ON pv.policy_id = rp.policy_id AND pv.version = rp.version
+        WHERE rp.run_id = ? AND p.kind = 'office_hours'`).all(run.run_id) as unknown as {
+      policy_id: string; version: number; rules: string;
+    }[];
+    for (const row of onRows) pinnedOfficeHours.set(`${row.policy_id}:${row.version}`, JSON.parse(row.rules) as OfficeHoursRules);
+
     const officeHoursByRef = (ref: string): OfficeHoursRules | null => {
+      const runScoped = pinnedOfficeHours.get(ref);
+      if (runScoped) return runScoped;
       const m = /^(.+):(\d+)$/.exec(ref);
       if (!m) return null;
       const row = this.db.prepare('SELECT rules FROM policy_versions WHERE policy_id = ? AND version = ?').get(m[1]!, Number(m[2])) as { rules: string } | undefined;
