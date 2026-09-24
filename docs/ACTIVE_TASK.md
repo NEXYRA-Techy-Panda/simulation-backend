@@ -79,8 +79,7 @@ apply the mounting step and K003 run-selectable export described in
 ## Processes started by M-C
 
 None remaining (month-run harness exited, ephemeral port closed). Scratch DB kept:
-`%TEMP%
-exyra-k005\month-2026-01-20260924T213403Z\` (history.sqlite ≈364 MB + summary.json).
+`%TEMP%\nexyra-k005\month-2026-01-20260924T213403Z\` (history.sqlite ≈364 MB + summary.json).
 
 ## Commit reference
 
