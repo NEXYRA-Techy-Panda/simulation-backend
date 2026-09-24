@@ -123,3 +123,50 @@ correction entry; do not rewrite history.
   contracts"`, `git push -u origin main`, verifying each remote hash.
   No force-push.
 - Task status set to blocked (commit/push step only); review pending.
+
+---
+
+## 2026-09-24 18:37:52 +05:30 (IST) — F1-R1 started (actual)
+
+- Layer ID: F1-R1 (targeted pre-acceptance corrections, canonical repo). F1
+  implementation completed; architecture review: changes_requested. No
+  approval, no F2.
+- Prior publishing resolved: F1 committed + pushed in all five repos with
+  verified remote hashes.
+- Objective: (A) self-contained CSV via first-row metadata envelope, drop
+  meta_policy; (B) 12 dp kWh export precision with consistent tolerances +
+  in-memory 7 W rounding check; extend verifier with CSV-alone reconstruction,
+  full semantic parity, and negative checks. Version stays 1.0.0.
+- Startup: no AGENTS.md; all repos on `main`, clean trees at F1 commits;
+  repo-local identity configured in all five (global untouched).
+- Next action: author correction A in THIS repo's `contracts/v1/`.
+- Review status: pending. Commit references: F1 pushed (see ACTIVE_TASK).
+
+---
+
+## 2026-09-24 18:43:07 +05:30 (IST) — F1-R1 corrections verified in canonical repo (actual)
+
+- Correction A: CSV is self-contained (first-row meta_run envelope, no
+  meta_policy); CSV_COLUMNS.md + CONTRACT.md §5/§6 + API export note updated;
+  reference.csv rewritten (27 cols); fixture V/I/pf made an exact triple
+  (200 V × 3/1.5 A × 1.0).
+- Correction B: 12 dp kWh export precision, tolerances 1e-9 per-value /
+  n·1e-9 totals / 1e-9 triple-relative; in-memory 7 W × 44,640-interval budget
+  check (analytic 5.208 kWh, budget 2.232e-8); expected.json rounding_budget.
+- Verifier: CSV-alone reconstruction + full semantic parity vs oracle,
+  duplicate handling, 4 negative checks, rounding budget.
+- Result: 54 passed, 0 failed in simulation-backend; manifest regenerated.
+- Next action: mirror to four siblings, verify, update continuity docs,
+  commit + push.
+- Review status: pending. Commit references: F1 pushed; F1-R1 none yet.
+
+---
+
+## 2026-09-24 18:43:07 +05:30 (IST) — F1-R1 completed (actual)
+
+- Corrections authored, mirrored, verified 54/54 in all five repos.
+- Continuity updated: ACTIVE_TASK completed, HANDOFF F1-R1 addendum,
+  F1_EVIDENCE F1-R1 section. Review pending; no approval claimed.
+- Next action: commit, push `main`, verify remote hash; return F1-R1 evidence.
+  Do not begin F2.
+- Commit references: F1 pushed; F1-R1 recorded after push.

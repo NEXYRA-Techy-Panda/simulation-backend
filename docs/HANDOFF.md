@@ -43,6 +43,16 @@
   checks; hosting plan — frontends on Vercel, Node backends + Python service
   on Mohan's VPS (no deployment in F1); from F1 onward completed layer work is
   committed and pushed (F0/F0.1 no-push was historical only).
+- F1-R1 addendum (2026-09-24, completed, review pending): pre-acceptance
+  corrections, version retained at 1.0.0 (not published). THIS repo holds the
+  corrected canonical bundle. (A) CSV is self-contained: first-data-row
+  `meta_run` envelope, `meta_policy` removed, 27-column header,
+  slice-without-envelope rejected. (B) 12 dp kWh exports, unrounded internal
+  accumulation, tolerances 1e-9 per-value / n·1e-9 totals / 1e-9
+  triple-relative, in-memory 7 W × 44,640-interval budget check (analytic
+  5.208 kWh, budget 2.232e-8). Verifier extended: CSV-alone reconstruction +
+  full semantic parity, 4 negative checks. 54/54 in all five repos.
+  Repo-local identity configured. History preserved in PROGRESS_LOG.
 
 ## 1. Purpose and owner
 
