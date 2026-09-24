@@ -125,5 +125,6 @@ temp area (`…\Temp\nexyra-k002\`) for inspection.
 
 ## Commit reference
 
-Base: `f7b134b`. K002: the commit containing this file (hash recorded in the
-K002 return report after push).
+Base: `f7b134b`. K002 implementation + migration + tests + docs:
+`26ba7174d7f0d5f55a6ca821e501bb5d2cef6d30` (pushed to `main`). A short follow-up
+documentation commit records this hash.

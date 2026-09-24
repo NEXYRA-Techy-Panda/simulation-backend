@@ -569,8 +569,9 @@ correction entry; do not rewrite history.
   `docs/ACTIVE_TASK.md`, `docs/HANDOFF.md`, this log. `.gitattributes` was
   already committed. No `.env`, DB, cache, dependency or build output committed.
 - Processes: none remaining; port 4173 has no listener.
-- Review status: pending (no self-assigned approval). Commit references: the K002
-  commits recorded in the K002 return report after push.
+- Review status: pending (no self-assigned approval). Commit references:
+  simulation-backend `26ba7174d7f0d5f55a6ca821e501bb5d2cef6d30` (pushed,
+  local == origin/main).
 - Next action: implement the historical export endpoint on top of the run-scoped
   activation (contract CSV/JSON), then validate a run's dataset against
   `energy-ml-service` `POST /v1/analyze`. Do not start Socket.IO, environment/

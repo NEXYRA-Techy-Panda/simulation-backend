@@ -384,7 +384,17 @@ build output.
 
 ## 10. Git publishing status
 
-Filled in after committing and pushing (hashes recorded in the K002 return
-report). Both repositories were pushed normally to `main`; local and remote
-hashes were compared after pushing. No force push, reset or history rewrite was
+Push access works, so both repositories were published normally to `main`.
+Hashes were compared after pushing and local `main` equals `origin/main` in
+each; both working trees are clean. No force push, reset or history rewrite was
 used.
+
+| Repository | Commit | Message |
+|---|---|---|
+| `simulation-backend` | `26ba7174d7f0d5f55a6ca821e501bb5d2cef6d30` | `feat(engine): run-scoped policy activation for run-policy timing` (implementation, migration 003, tests, docs) |
+| `simulation-frontend` | `906446e201e4b6bb3e53bf1d44c85be2c17a593d` | `docs: record the K002 contract checkout portability fix` (docs only; the `.gitattributes` was committed earlier as `e227839`) |
+
+Earlier K001 commits remain published: `simulation-backend f7b134b` (the
+line-ending `.gitattributes`) on top of `1f43a5e`; `simulation-frontend
+e227839` on top of `f2cdffe`. A short follow-up documentation commit on each
+repository records these K002 hashes.
