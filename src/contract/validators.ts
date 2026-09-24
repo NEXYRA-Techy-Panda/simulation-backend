@@ -56,3 +56,5 @@ export function assertRules(kind: PolicyKind, rules: unknown): void {
 export const assertRoom = (room: unknown): void => check('/properties/rooms/items', room, 'room');
 export const assertDevice = (device: unknown): void => check('/properties/devices/items', device, 'device');
 export const assertPolicy = (policy: unknown): void => check('/properties/policies/items', policy, 'policy');
+export const assertRoomInterval = (row: unknown): void => check('/properties/room_intervals/items', row, 'room interval');
+export const assertDeviceInterval = (row: unknown): void => check('/properties/device_intervals/items', row, 'device interval');

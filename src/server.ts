@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { type Config, ConfigError, loadConfig } from './config.js';
 import { closeDatabase, openDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
+import { SimulationEngine } from './engine/engine.js';
 import { loadLocalEnv } from './env.js';
 
 loadLocalEnv();
@@ -30,8 +31,15 @@ try {
   process.exit(1);
 }
 
+// Recover the most recent active run as PAUSED (no time passes during downtime).
+const engine = new SimulationEngine(db);
+const recovered = engine.recover();
+console.log(recovered
+  ? `recovered run ${recovered.run_id} at ${recovered.sim_time_utc} (seq ${recovered.seq}) as paused`
+  : 'no active run; engine not_initialized until start');
+
 const { host, port, shutdownTimeoutMs } = config;
-const server = createApp(config, { db }).listen(port, host, () => {
+const server = createApp(config, { db, engine }).listen(port, host, () => {
   const actual = (server.address() as AddressInfo).port;
   console.log(`simulation-backend listening on http://${host}:${actual} (health: /api/v1/health, pid ${process.pid})`);
 });
@@ -46,6 +54,12 @@ function shutdown(reason: string): void {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`${reason} received; closing server`);
+  try {
+    engine.shutdown(); // stop the clock and checkpoint processed state (incl. partial minute)
+    console.log('engine stopped and checkpointed');
+  } catch (err) {
+    console.error('engine checkpoint failed during shutdown:', err);
+  }
   const timer = setTimeout(() => {
     console.error('Shutdown deadline reached; closing remaining connections');
     server.closeAllConnections();

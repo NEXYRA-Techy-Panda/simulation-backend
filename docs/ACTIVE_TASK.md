@@ -2,18 +2,22 @@
 
 ## Assignment / Layer ID
 
-P002 — F3-S (simulator SQLite foundation and inventory).
+P004 — K1 (authoritative simulation clock and first energy loop).
 Agent: B — Claude Code. Owner: Mohan.
+
+## Ownership
+
+Exclusive write: `simulation-backend` only. OpenCode owns the frontends;
+Codex owns auditor-backend. No sibling repos, parent files or contracts/v1.
 
 ## Objective
 
-Real SQLite foundation: connection factory (FK enforcement, busy timeout,
-WAL), versioned idempotent migrations, contract-aligned tables (rooms,
-devices, versioned policies, runs + immutable config, run inventory/policy
-snapshots, room/device interval readings, migration history), idempotent
-non-destructive demo seed (5 rooms, 18 devices), DB-backed
-`GET /api/v1/inventory`, health unchanged. No clock, occupancy, commands,
-Socket.IO, history, export or fault injection. Stop after P002.
+Backend-authoritative engine: start/pause/resume/reset/speed, fixed 10 s
+simulated steps at speeds 1/2/10/60/100/1000 from 2026-01-01 00:00 IST,
+correct device energy, transactional minute intervals, checkpoint +
+paused recovery, real GET /api/v1/state, manual lighting control via
+POST /api/v1/devices/:id. No schedules automation, occupancy movement,
+Socket.IO, history generation, export, faults or frontend work.
 
 ## Task status
 
@@ -23,70 +27,52 @@ completed
 
 pending
 
-## Ownership
-
-- Exclusive write access for P002: `simulation-backend` ONLY.
-- Codex owns `auditor-backend`; OpenCode owns the frontends. Agent B must
-  not edit `auditor-backend`, `energy-ml-service`, the frontends, parent
-  files, or the contract snapshot (`contracts/v1`, `scripts/verify-contract.mjs`).
-
 ## Previous task outcome (preserved)
 
-F2-B (`1418f52`) accepted by the architecture lead based on supplied
-evidence; graceful-shutdown verification outstanding (addressed in P002).
-Known documentation typo: CONTRACT.md §1 prose "1.0.0" — schema, manifest
-and fixtures (1.0.1) are authoritative; not edited here.
+P002 / F3-S accepted based on supplied evidence (`b0f569a`).
 
 ## Current branch
 
-`main` at `1418f5214999b984b09f6ef470879520451ae683` (== origin/main; clean).
+`main` at `b0f569ac16503112b25e4a9845d4c861f29a2165` (== origin/main).
 
 ## Last checkpoint timestamp, including timezone
 
-2026-09-24 19:55:55 +05:30 (IST) — P002 implementation completed; committing + pushing.
+2026-09-24 20:10:42 +05:30 (IST) — P004 implementation completed; committing + pushing.
 
-## Applicable contract version
+## Completed work
 
-1.0.1 (read-only).
+1. Startup checks; P002 acceptance + owner decisions recorded.
+2. Migration 002 engine_checkpoints (001 untouched).
+3. Engine (constants, schedule measurement, wall-clock scheduler, engine),
+   routes (state, control, speed, devices), ApiError, health via engine,
+   server recovery + engine checkpoint on shutdown.
+4. Tests: engine (energy, speeds, toggle, reconciliation, pause, repeated
+   start, transitions, reset, graceful + crash restart, schedule helper) and
+   HTTP (lifecycle, errors, lighting, responsiveness, reset).
+5. Live port-4000 demo on a temp DB incl. restart recovery.
+6. Docs: SIMULATION_ENGINE.md, P004_K1_EVIDENCE.md, README, HANDOFF, PROGRESS_LOG.
 
-## Completed steps
+## Checks/results
 
-1. Startup: no AGENTS.md; continuity + contract read; tree clean; in sync.
-2. Driver: built-in node:sqlite (no new npm dependency).
-3. Connection factory, checksum-guarded migrations, migration 001 schema.
-4. Contract-validated policy versions; run snapshots; idempotent seed.
-5. DB-backed GET /api/v1/inventory; startup migrates (no seed); IPC shutdown.
-6. Checks green (75/75, 24/24, typecheck/lint/build 0, tests 22/22); CLI
-   sequence and live port-4000 check on a scratch DB; graceful shutdown via IPC.
-7. README, HANDOFF, PROGRESS_LOG, docs/P002_F3_S_EVIDENCE.md updated.
+- verify:contract 75/75; validate:schema 24/24; typecheck 0; lint 0; test 39/39; build 0.
+- Live demo: light 0.0030 kWh and office 0.0123333 kWh reconciled with 3 persisted minutes + 20 s partial; restart recovered paused.
 
-## Files changed
+## Known limitations
 
-src/db/** (connection, migrate, migrations/001, inventory, runs, seed, clock), src/contract/validators.ts, src/cli/{migrate,seed}.ts, src/env.ts, src/routes/inventory.ts, src/app.ts, src/server.ts, src/config.ts, test/{app,db,shutdown}.test.ts, test/helpers.ts, package.json (scripts), .env.example, .gitignore (WAL/SHM), README.md, docs/*. contracts/v1 + verify-contract.mjs unchanged.
-
-## Verification performed and actual results
-
-verify:contract 75/75; validate:schema 24/24; typecheck 0; lint 0; test 22/22; build 0; db:migrate ×2 and db:seed ×2 idempotent (5/18/20); live http://localhost:4000 health not_initialized + inventory 5/18/20 + 404 envelope; IPC graceful shutdown exit 0 with DB closed.
-
-## Incomplete edits and uncommitted changes
-
-None beyond the P002 commit in progress.
-
-## Blockers or unknowns
-
-- None blocking.
-- OS-signal (Ctrl+C / Linux SIGTERM) delivery not exercised by the agent; IPC graceful path verified.
-- on_windows [] semantics for scheduled devices undefined in contract 1.0.1.
-- node:sqlite not yet documented Stable in Node 24.
+- Manual-demo only: occupancy 0, synthetic climate, lighting-only control,
+  clear-override → base state, constant fridge, no AC thermal model, no V/I.
+- Crash (no graceful shutdown) can lose < 1 simulated minute since the last checkpoint.
+- OS-signal delivery (Ctrl+C / Linux SIGTERM) not exercised; IPC shutdown path verified.
+- New runs always start at 2026-01-01 00:00 IST.
 
 ## Exact next action
 
-Commit + push P002, verify remote hash, return P002 evidence. Then STOP — next task only when assigned.
+Commit + push P004, verify remote hash, return P004 evidence. Then STOP — next layer (schedules/occupancy/Socket.IO/export) only when assigned.
 
 ## Processes started by Agent B
 
-Test child servers (ephemeral ports) and live check server PID 1344 on port 4000 — all exited via graceful shutdown (exit 0). None left running.
+Test child servers and live demo servers (PIDs 14812, 22088 on port 4000) — all exited via graceful IPC shutdown (exit 0). None left running.
 
 ## Commit reference
 
-Base: `1418f52`. P002: the commit containing this file (hash in the P002 return report).
+Base: `b0f569a`. P004: the commit containing this file (hash in the P004 return report).

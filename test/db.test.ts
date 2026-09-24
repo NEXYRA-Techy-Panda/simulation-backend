@@ -63,17 +63,17 @@ describe('migrations', () => {
     withFileDb((path) => {
       const db = openDatabase(path);
       try {
-        assert.deepEqual(runMigrations(db), { applied: [1], currentVersion: 1 });
-        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 1 });
+        assert.deepEqual(runMigrations(db), { applied: [1, 2], currentVersion: 2 });
+        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 2 });
         const tables = (db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name").all() as { name: string }[])
           .map((r) => r.name);
         for (const t of ['buildings', 'rooms', 'devices', 'policies', 'policy_versions', 'simulation_runs', 'run_rooms',
-          'run_devices', 'run_policies', 'room_intervals', 'device_intervals', 'schema_migrations']) {
+          'run_devices', 'run_policies', 'room_intervals', 'device_intervals', 'schema_migrations', 'engine_checkpoints']) {
           assert.ok(tables.includes(t), `missing table ${t}`);
         }
         const history = db.prepare('SELECT version, name, checksum FROM schema_migrations').all();
         assert.deepEqual(history.map((h) => ({ ...h })),
-          [{ version: 1, name: migrations[0]!.name, checksum: migrationChecksum(migrations[0]!.sql) }]);
+          migrations.map((m) => ({ version: m.version, name: m.name, checksum: migrationChecksum(m.sql) })));
       } finally {
         closeDatabase(db);
       }
@@ -89,9 +89,11 @@ describe('migrations', () => {
   it('refuses an applied migration whose SQL changed, without altering the database', () => {
     const db = memoryDb({ seed: false });
     try {
-      const edited = [{ ...migrations[0]!, sql: `${migrations[0]!.sql}\n-- edit` }];
+      const edited = [{ ...migrations[0]!, sql: `${migrations[0]!.sql}\n-- edit` }, ...migrations.slice(1)];
+      assert.throws(() => runMigrations(db, edited), /migration 1 .* was modified/);
+      assert.throws(() => runMigrations(db, migrations.slice(0, 1)), /unknown to this build/);
       assert.throws(() => runMigrations(db, edited), MigrationError);
-      assert.equal(count(db, 'schema_migrations'), 1);
+      assert.equal(count(db, 'schema_migrations'), migrations.length);
     } finally {
       closeDatabase(db);
     }

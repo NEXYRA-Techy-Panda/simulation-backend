@@ -291,3 +291,49 @@ correction entry; do not rewrite history.
 - Open: on_windows semantics; node:sqlite stability status.
 - Next action: commit + push; stop after P002.
 - Commit references: P002 hash recorded in the P002 return report.
+
+---
+
+## 2026-09-24 20:01:41 +05:30 (IST) — P002 / F3-S accepted (recorded)
+
+- P002 (commit `b0f569ac16503112b25e4a9845d4c861f29a2165`) was accepted by
+  the architecture lead based on supplied evidence.
+
+---
+
+## 2026-09-24 20:01:41 +05:30 (IST) — P004 / K1 started (actual)
+
+- Assignment P004, layer K1 (authoritative simulation clock + first energy
+  loop), Agent B — Claude Code, owner Mohan. Exclusive write: simulation-backend.
+- Baseline `b0f569a` == origin/main, clean tree; no AGENTS.md.
+- Confirmed decisions (owner): empty device on_windows follows the referenced
+  office-hours schedule; manual occupancy acceptable initially; inventory may
+  show latest policies while history keeps applicable versions; manual
+  overrides persist until cleared; existing node:sqlite driver; contract
+  1.0.1 unchanged.
+- Next action: engine core (clock, lifecycle, energy, minute persistence,
+  checkpoint/recovery, lighting control) + tests.
+- Review status: pending.
+
+---
+
+## 2026-09-24 20:10:42 +05:30 (IST) — P004 / K1 completed (actual)
+
+- Layer: K1 (P004), Agent B — Claude Code. Implementation completed; review
+  pending (never self-assigned).
+- Delivered: deterministic 10 s-step engine + monotonic wall-clock scheduler
+  (bounded batches, yields, single loop, no skipped steps); lifecycle routes
+  (start/pause/resume/reset/speed), GET /state, lighting control via
+  POST /devices/:id; transactional minute intervals + checkpoints (migration
+  002); reset ends old run with a partial edge interval; paused recovery on
+  restart.
+- Results: verifier 75/75; schema 24/24; typecheck/lint/build 0; tests 39/39;
+  1 kW × 1 h = 1 kWh; identical energy at all six speeds; live port-4000 demo
+  reconciled; restart recovered paused.
+- Decisions: owner decisions in docs/SIMULATION_ENGINE.md; state/control
+  responses add status/speed/energy fields beyond the contract minimum;
+  clear-override restores base state until the schedule layer.
+- Open: schedule execution, occupancy, Socket.IO, export; OS-signal
+  shutdown path unexercised; crash loss < 1 simulated minute.
+- Next action: commit + push; stop after P004.
+- Commit references: P004 hash recorded in the P004 return report.

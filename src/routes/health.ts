@@ -1,21 +1,16 @@
 import { Router } from 'express';
-import { CONTRACT_VERSION } from '../contract.js';
+import type { SimulationEngine } from '../engine/engine.js';
 import { sendData } from '../http/envelope.js';
 
 /**
- * GET /api/v1/health — scaffold stage. The simulation engine does not exist
- * yet, so the contract's uninitialised shape is returned: no run id and no
- * simulated time are invented. HTTP 200 means the service itself is reachable.
+ * GET /api/v1/health — reachable service plus the engine's real state:
+ * not_initialized (run_id/sim_time_utc null) until a run exists, then ok
+ * with the actual run id and processed simulated time. Never invented.
  */
-export function healthRouter(): Router {
+export function healthRouter(engine: SimulationEngine): Router {
   const router = Router();
   router.get('/health', (_req, res) => {
-    sendData(res, {
-      status: 'not_initialized',
-      run_id: null,
-      sim_time_utc: null,
-      contract_version: CONTRACT_VERSION,
-    });
+    sendData(res, engine.health());
   });
   return router;
 }

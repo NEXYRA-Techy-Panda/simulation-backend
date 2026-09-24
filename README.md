@@ -9,15 +9,27 @@ and auditing project.
 - **Owner**: Mohan (foundation F0–F6) → Kishore Kumar (after handoff).
 - **Local port**: `4000`. Serves `simulation-frontend` on `3000`.
 
-## Status (P002 / F3-S, 2026-09-24)
+## Status (P004 / K1, 2026-09-24)
 
-SQLite foundation + inventory implemented; review pending. Routes:
-`GET /api/v1/health` (engine still `not_initialized`, no run invented) and
-`GET /api/v1/inventory` (database-backed rooms, devices, latest policy
-versions). Not implemented: simulation clock, occupancy engine, device
-commands, Socket.IO, history, export, fault injection (later layers).
-Evidence: [P002 F3-S evidence](docs/P002_F3_S_EVIDENCE.md),
-[F2-B evidence](docs/F2_B_EVIDENCE.md).
+Authoritative simulation clock + first energy loop implemented; review
+pending. Routes: `GET /api/v1/health`, `GET /api/v1/inventory`,
+`GET /api/v1/state`, `POST /api/v1/control/{start,pause,resume,reset,speed}`,
+`POST /api/v1/devices/:id` (lighting `manual_state` on/off, `clear_override`).
+Fixed 10 s steps, speeds 1/2/10/60/100/1000, start 2026-01-01 00:00 IST,
+minute intervals persisted transactionally, restart recovers the active run
+paused. Manual-demo mode only: no schedule execution, occupancy movement,
+Socket.IO, history generation, export or fault injection yet. Design:
+[SIMULATION_ENGINE.md](docs/SIMULATION_ENGINE.md); evidence:
+[P004 K1](docs/P004_K1_EVIDENCE.md), [P002 F3-S](docs/P002_F3_S_EVIDENCE.md).
+
+Quick demo (after `npm run db:setup` and `npm run dev`):
+
+```sh
+curl -X POST http://localhost:4000/api/v1/control/start -H "Content-Type: application/json" -d "{\"speed\":60}"
+curl -X POST http://localhost:4000/api/v1/devices/dev-meeting-light -H "Content-Type: application/json" -d "{\"manual_state\":\"on\"}"
+curl http://localhost:4000/api/v1/state
+curl -X POST http://localhost:4000/api/v1/control/pause
+```
 
 ## Setup and commands (Windows PowerShell or Linux shell; Node >= 24, npm)
 
@@ -35,7 +47,7 @@ npm run dev                # tsx watch src/server.ts  -> http://localhost:4000
 | `typecheck` / `lint` / `test` | tsc --noEmit / eslint / node:test via tsx (temp DBs only) |
 | `verify:contract` / `validate:schema` | contract checks (read-only bundle) / formal JSON Schema 2020-12 (Ajv) |
 
-Startup applies pending migrations but does **not** seed. Compiled CLIs:
+Startup applies pending migrations, recovers the most recent active run as **paused**, and does **not** seed. Compiled CLIs:
 `node dist/cli/migrate.js`, `node dist/cli/seed.js`. No reset command exists
 — nothing deletes data. Driver: built-in `node:sqlite` (no native addon).
 
@@ -54,7 +66,8 @@ git-ignored), `SQLITE_BUSY_TIMEOUT_MS` (5000). Local development scaffold
 only — not approval to expose endpoints publicly.
 
 Graceful shutdown: Ctrl+C / SIGTERM, or an IPC `"shutdown"` message when
-started with an IPC channel — closes HTTP, then the database.
+started with an IPC channel — stops the clock and checkpoints the engine
+(including the partial minute), closes HTTP, then the database.
 
 Docs:
 
@@ -67,5 +80,7 @@ Docs:
 - [F1 evidence](docs/F1_EVIDENCE.md)
 - [F2-B evidence](docs/F2_B_EVIDENCE.md)
 - [P002 F3-S evidence](docs/P002_F3_S_EVIDENCE.md)
+- [Simulation engine (K1)](docs/SIMULATION_ENGINE.md)
+- [P004 K1 evidence](docs/P004_K1_EVIDENCE.md)
 - [Data contract v1](contracts/v1/CONTRACT.md) (canonical copy in this repo)
 - [Service interfaces](contracts/v1/API.md)

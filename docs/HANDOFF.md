@@ -2,9 +2,9 @@
 
 ## 0. Continuity and current layer (F0.1, 2026-09-24)
 
-- Current layer: **P002 / F3-S** (SQLite foundation + inventory) — status
-  **completed**, review **pending** (F2-B accepted based on supplied evidence;
-  its graceful-shutdown gap addressed in P002). Contract: **1.0.1 defined** (canonical
+- Current layer: **P004 / K1** (authoritative simulation clock + first energy
+  loop) — status **completed**, review **pending** (P002 accepted based on
+  supplied evidence). Contract: **1.0.1 defined** (canonical
   `simulation-backend/contracts/v1/`, mirrored to siblings; replaces the
   unaccepted 1.0.0 prototype, no backward compatibility claimed).
 - Continuity files: [ACTIVE_TASK.md](ACTIVE_TASK.md) and [PROGRESS_LOG.md](PROGRESS_LOG.md).
@@ -101,6 +101,26 @@
   Evidence: [P002_F3_S_EVIDENCE.md](P002_F3_S_EVIDENCE.md). Open: on_windows
   semantics, node:sqlite stability status. Not implemented: clock, occupancy,
   commands, Socket.IO, history, export, fault injection.
+- P004 / K1 addendum (2026-09-24, Agent B — Claude Code, implementation
+  completed, review **pending**): P002 accepted based on supplied evidence.
+  Owner decisions recorded in [SIMULATION_ENGINE.md](SIMULATION_ENGINE.md)
+  (empty on_windows follows office hours; manual occupancy; latest policies
+  in inventory, versions pinned in history; overrides persist until cleared;
+  node:sqlite; contract unchanged). Engine: deterministic advanceSteps()
+  (10 s steps) + monotonic wall-clock scheduler (bounded batches, yields,
+  no skipped steps, single loop), speeds 1/2/10/60/100/1000, start
+  2026-01-01 00:00 IST. Routes: state, control start/pause/resume/reset/speed,
+  devices/:id (lighting only). Minute room/device intervals + checkpoint in
+  one transaction; migration 002 engine_checkpoints. Reset ends old run
+  (partial edge interval, partial=1) and creates a new run (seq 0, paused).
+  Restart recovers the active run PAUSED; crash may lose < 1 simulated
+  minute since the last checkpoint. Temporary manual-demo assumptions:
+  occupancy 0, synthetic 26 °C / 55 % RH, controllable loads off, constant
+  fridge, clear-override → base state (to be replaced by schedule
+  evaluation). Checks: verifier 75/75, schema 24/24, typecheck/lint/build 0,
+  tests 39/39, live port-4000 demo on a temp DB.
+  Evidence: [P004_K1_EVIDENCE.md](P004_K1_EVIDENCE.md). Next: schedule layer,
+  occupancy, Socket.IO, export — pending assignment.
 
 ## 1. Purpose and owner
 

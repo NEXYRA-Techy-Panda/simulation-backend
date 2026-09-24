@@ -1,5 +1,12 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
-import { sendError } from './envelope.js';
+import { type ErrorCode, sendError } from './envelope.js';
+
+/** An error that maps directly to a contract error envelope. */
+export class ApiError extends Error {
+  constructor(readonly status: number, readonly code: ErrorCode, message: string, readonly field?: string) {
+    super(message);
+  }
+}
 
 export const notFound: RequestHandler = (req, res) => {
   sendError(res, 404, { code: 'NOT_FOUND', message: `No route for ${req.method} ${req.path}` });
@@ -15,6 +22,10 @@ interface HttpishError {
 export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, next) => {
   if (res.headersSent) {
     next(err);
+    return;
+  }
+  if (err instanceof ApiError) {
+    sendError(res, err.status, { code: err.code, message: err.message, ...(err.field ? { field: err.field } : {}) });
     return;
   }
   const e = (typeof err === 'object' && err !== null ? err : {}) as HttpishError;

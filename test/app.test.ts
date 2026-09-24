@@ -6,10 +6,12 @@ import { createApp } from '../src/app.js';
 import { ConfigError, loadConfig } from '../src/config.js';
 import { assertDevice, assertPolicy, assertRoom } from '../src/contract/validators.js';
 import type { Inventory } from '../src/db/inventory.js';
+import { SimulationEngine } from '../src/engine/engine.js';
 import { closeDatabase, memoryDb } from './helpers.js';
 
 const config = loadConfig({ JSON_BODY_LIMIT: '1kb' });
 const db = memoryDb();
+const engine = new SimulationEngine(db);
 
 interface Envelope {
   data?: unknown;
@@ -22,7 +24,7 @@ let server: Server;
 let base: string;
 
 before(async () => {
-  server = createApp(config, { db }).listen(0, '127.0.0.1');
+  server = createApp(config, { db, engine }).listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
