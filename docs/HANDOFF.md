@@ -2,9 +2,11 @@
 
 ## 0. Continuity and current layer (F0.1, 2026-09-24)
 
-- Current layer: **P008 / K3–K4** (occupancy allocation + operating
-  schedules) — status **completed**, review **pending** (P004 accepted based
-  on supplied evidence). Contract: **1.0.1 defined** (canonical
+- Current layer: **P010 / F6-S documentation** (backend handoff to Kishore
+  Kumar) — documentation completed, review **pending**. P008 occupancy/schedule
+  behaviour accepted based on supplied evidence; run-policy timing defect
+  remains open. F6 foundation handoff NOT complete (frontend completion and
+  export/import integration remain separate). Contract: **1.0.1 defined** (canonical
   `simulation-backend/contracts/v1/`, mirrored to siblings; replaces the
   unaccepted 1.0.0 prototype, no backward compatibility claimed).
 - Continuity files: [ACTIVE_TASK.md](ACTIVE_TASK.md) and [PROGRESS_LOG.md](PROGRESS_LOG.md).
@@ -140,6 +142,17 @@
   OpenCode: [SIMULATION_ENGINE.md](SIMULATION_ENGINE.md). Evidence:
   [P008_K3_K4_EVIDENCE.md](P008_K3_K4_EVIDENCE.md). Next: Socket.IO, export,
   comfort — pending assignment.
+- P010 addendum (2026-09-24, Agent B — Claude Code, documentation only,
+  review **pending**): [KISHORE_BACKEND_HANDOFF.md](KISHORE_BACKEND_HANDOFF.md)
+  written (setup/commands, routes + authoritative examples, clock/storage/
+  recovery, occupancy/schedules, limitations, remaining work, commit refs,
+  continuity protocol). OPEN DEFECT (required before final historical-export
+  acceptance, not an accepted limitation): run-relative policy effective
+  times — a new run may start before the effective_from timestamps of policy
+  versions inherited from an earlier run while applying them immediately.
+  Remaining simulator work (run-policy timing correction, Socket.IO,
+  environment/comfort, history + exports, faults, matched original/improved,
+  frontend integration) belongs to Kishore Kumar. No source changed.
 
 ## 1. Purpose and owner
 

@@ -2,27 +2,19 @@
 
 ## Assignment / Layer ID
 
-P008 — K3–K4 (occupancy allocation and operating schedules).
-Agent: B — Claude Code. Owner: Mohan.
+P010 — F6-S documentation (simulator backend handoff to Kishore Kumar).
+Agent: B — Claude Code. Category: foundation handoff + Mohan feature.
+Owner: Mohan.
 
-## Ownership
+## Scope (this repository)
 
-Exclusive write: `simulation-backend` only. OpenCode owns the frontends;
-Codex owns auditor-backend. No sibling repos, parent files or contracts/v1.
-
-## Objective
-
-Replace zero-occupancy/manual-demo behaviour with automatic room allocation
-(manual + scheduled modes, 0–20, stable seeded occupants, simple
-meeting/lunch redistribution), working-day/hour calendar, real schedule and
-vacancy-grace device control, overrides returning to policy when cleared,
-versioned runtime policy changes effective at the next minute boundary;
-POST /api/v1/occupancy and POST /api/v1/calendar; extended state; complete
-API examples for OpenCode. Preserve clock/energy/persistence/recovery.
+Documentation ONLY: docs/KISHORE_BACKEND_HANDOFF.md plus HANDOFF.md,
+ACTIVE_TASK.md, PROGRESS_LOG.md. No simulator source, migration, contract
+or feature changes. (The Python part of P010 is in energy-ml-service.)
 
 ## Task status
 
-completed
+completed (documentation)
 
 ## Review status
 
@@ -30,47 +22,50 @@ pending
 
 ## Previous task outcome (preserved)
 
-P004 / K1 accepted based on supplied evidence (`93da205`).
+P008 occupancy/schedule behaviour accepted based on supplied evidence;
+run-policy timing defect remains open.
 
 ## Current branch
 
-`main` at `93da205aa0edbc6cc308c9cce7c1af19216f10df` (== origin/main).
+`main` at `6d2630973139c5612d4e8c78cd928bc994ae2ca0` before the P010 docs
+commit (== origin/main at start).
 
 ## Last checkpoint timestamp, including timezone
 
-2026-09-24 20:32:33 +05:30 (IST) — P008 implementation completed; committing + pushing.
+2026-09-24 20:46:25 +05:30 (IST) — handoff document written; committing documentation only.
 
 ## Completed work
 
-1. Startup; P004 acceptance + MVP decisions recorded.
-2. rng.ts, occupancy.ts, schedule.ts (permitted windows), engine.ts (policy
-   control, grace, versioned calendar/occupancy changes, pending changes,
-   checkpoint format 2), routes /occupancy, /calendar, seed on start/reset.
-3. Tests 56/56 (17 new; 4 existing expectations updated for intended changes).
-4. Live port-4000 demo on a temp DB; real bodies embedded in SIMULATION_ENGINE.md.
-5. Docs: SIMULATION_ENGINE.md (complete examples), P008_K3_K4_EVIDENCE.md,
-   README, HANDOFF, PROGRESS_LOG.
+1. Startup checks (both repos at reported baselines, clean, no AGENTS.md).
+2. docs/KISHORE_BACKEND_HANDOFF.md: continuity protocol, commit references,
+   setup/migrate/seed/test/start commands, routes + pointer to the complete
+   API examples, clock/interval/recovery, occupancy/schedules, the OPEN
+   run-policy timing defect (required before final historical-export
+   acceptance), accepted limitations, remaining simulator work.
+3. HANDOFF.md addendum + PROGRESS_LOG entry.
 
-## Checks/results
+## Open blocker (recorded, NOT fixed in P010)
 
-- verify:contract 75/75; validate:schema 24/24; typecheck 0; lint 0; test 56/56; build 0.
-- Live demo: scheduled 14 with meeting redistribution, calendar v2 pending → applied at 11:12 IST, manual 16, light off/on/clear, energy reconciled (15.760733 persisted + 0.035711 partial = 15.796444 kWh).
+Run-relative policy effective times: a new run may start before the
+effective_from timestamps of policy versions inherited from an earlier run,
+while applying those versions immediately. Required before final
+historical-export acceptance (see KISHORE_BACKEND_HANDOFF.md §6).
 
-## Known limitations
+## F6 status
 
-- Arrivals/departures at opening/closing only; two predefined redistribution rules.
-- No comfort/thermal AC behaviour; synthetic constant climate; constant fridge.
-- Later runs pin latest policy versions whose effective_from_utc came from an earlier run's timeline.
-- Commands need a run (409); crash loss < 1 simulated minute; OS-signal shutdown unexercised.
+Foundation handoff NOT complete: frontend completion and end-to-end
+export/import integration remain separate work.
 
 ## Exact next action
 
-Commit + push P008, verify remote hash, return P008 evidence. Then STOP — next layer only when assigned.
+Commit + push documentation only; verify remote hash. Next simulator work
+belongs to Kishore Kumar: read the continuity files and
+KISHORE_BACKEND_HANDOFF.md before implementing the next assigned task.
 
 ## Processes started by Agent B
 
-Test servers (ephemeral ports) and live demo server PID 16576 on port 4000 — exited via graceful IPC shutdown (exit 0). None left running.
+None in this repository.
 
 ## Commit reference
 
-Base: `93da205`. P008: the commit containing this file (hash in the P008 return report).
+Base: `6d26309`. P010 docs: the commit containing this file (hash in the P010 return report).

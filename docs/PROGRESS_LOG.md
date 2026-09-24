@@ -381,3 +381,35 @@ correction entry; do not rewrite history.
   target (scheduled) kept separate.
 - Next action: commit + push; stop after P008.
 - Commit references: P008 hash recorded in the P008 return report.
+
+---
+
+## 2026-09-24 20:38:41 +05:30 (IST) — P010 started (actual)
+
+- Assignment P010 (category: foundation handoff + Mohan feature; layer
+  F6-S documentation / Python deterministic analysis foundation), Agent B —
+  Claude Code, owner Mohan.
+- Permitted writes: simulation-backend continuity + handoff documentation
+  ONLY; energy-ml-service implementation + docs. No simulator source,
+  migrations, contracts, auditor-backend, frontends or parent files.
+- Verified state: simulation-backend `6d26309`, energy-ml-service
+  `22b0a08`, both == origin/main, clean; no AGENTS.md.
+- Review record: P008 occupancy/schedule behaviour accepted based on supplied
+  evidence; run-policy timing defect remains open. (F2-B was accepted based
+  on supplied evidence, as recorded in later assignments.)
+- Next action: write docs/KISHORE_BACKEND_HANDOFF.md (documentation only).
+
+---
+
+## 2026-09-24 20:46:25 +05:30 (IST) — P010 / F6-S documentation completed (actual)
+
+- Documentation only (no source/migration/contract change):
+  docs/KISHORE_BACKEND_HANDOFF.md, HANDOFF.md addendum, ACTIVE_TASK.md.
+- Review record: P008 occupancy/schedule behaviour accepted based on
+  supplied evidence; run-policy timing defect remains open.
+- Open defect recorded (required before final historical-export acceptance;
+  not fixed): run-relative policy effective times for inherited versions.
+- F6 foundation handoff NOT complete (frontend + export/import integration).
+- Related: energy-ml-service P010 deterministic analyze pushed at 36f5832; it
+  rejects intervals whose policy effective_from is after the interval start.
+- Next action: commit + push docs; remaining simulator work → Kishore Kumar.
