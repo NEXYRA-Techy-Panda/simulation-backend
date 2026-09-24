@@ -2,15 +2,16 @@
 
 ## Layer ID
 
-F1-R2
+F2-B (backend application foundations: simulation-backend, auditor-backend,
+energy-ml-service). Agent B. Developer: Mohan.
 
 ## Objective
 
-Targeted corrections from direct architecture review — THIS repo is canonical
-(lead inspected 3000b9d; verifier 54/54 confirmed; CSV accepted; F1 still
-changes_requested): 9dp power precision + fractional checks, V/I semantics,
-kind-specific policy rules, persist-until-cleared overrides, concrete Python
-requests, full API paths + health states, version 1.0.1. No F2.
+Scaffold this repository's application foundation against contract 1.0.1
+(frozen, read-only during F2-B): health route(s) only, env config, formal
+JSON Schema validation (Node repos), reproducible dependencies, verification,
+docs, commit + push. No DB, simulation, uploads, interservice calls,
+training or deployment. Stop after F2-B (no F3/F4).
 
 ## Task status
 
@@ -20,58 +21,70 @@ completed
 
 pending
 
-## Repository and owner
+## Ownership
 
-- Repository: `simulation-backend` (`https://github.com/NEXYRA-Techy-Panda/simulation-backend.git`)
-- Foundation owner (F0–F6): Mohan. Long-term owner: Kishore Kumar (after F6 handoff).
+- Agent B owns ONLY `simulation-backend`, `auditor-backend`,
+  `energy-ml-service`. Agent A concurrently owns both frontends — do not
+  write to, probe, or kill processes of the frontends; no parent-level files.
+- Repository: `simulation-backend` — port 4000.
+
+## Previous task outcome (preserved)
+
+F1-R2 (contract 1.0.1) completed and pushed; accepted by the architecture
+lead based on supplied evidence. Verifier 75/75 at F2-B start.
 
 ## Current branch
 
-`main` (F1-R1 `3000b9d` pushed; tree clean; repo-local identity set)
+`main` at `f64ee215d4b3fc5021eadf8ec5eb7aeef290a024` (== origin/main after fetch; clean tree).
 
 ## Last checkpoint timestamp, including timezone
 
-2026-09-24 19:07:48 +05:30 (IST) — F1-R2 completed. No AGENTS.md; tree clean;
-fetch clean.
+2026-09-24 19:39:10 +05:30 (IST) — F2-B implementation completed; committing + pushing.
 
 ## Applicable contract version
 
-1.0.1 (being authored; replaces unaccepted 1.0.0 prototype).
+1.0.1 (implementation baseline; contracts/v1 + scripts/verify-contract.mjs read-only).
 
 ## Completed steps
 
-1. Startup: context read; git state inspected; F1-R2 recorded here.
-2. Repo-local identity already configured.
+1. Startup: no AGENTS.md; clean + in sync; ports free; baseline verifier 75/75.
+2. Scaffold + pinned dependencies written (see docs/F2_B_EVIDENCE.md).
+3. All checks green; live HTTP verification on the assigned port.
+4. Windows Smart App Control blocked a pandas extension; Mohan changed the
+   Windows setting; re-test passed.
+5. README, HANDOFF (F2-B addendum), PROGRESS_LOG, F2_B_EVIDENCE updated.
 
 ## Files changed
 
-- Updated: `docs/ACTIVE_TASK.md` (this file).
+Scaffold source/config/tests, dependency manifests (+lock/requirements), .env.example, .gitignore (`!.env.example`), README.md, docs/HANDOFF.md, docs/ACTIVE_TASK.md, docs/PROGRESS_LOG.md, docs/F2_B_EVIDENCE.md. contracts/v1 and scripts/verify-contract.mjs unchanged.
 
 ## Verification performed and actual results
 
-- Branch `main`, clean tree, F1-R1 commit `3000b9d`, origin in sync.
+verify:contract 75/75; validate:schema 24/24 (Ajv 8.20.0, 2020-12 strict); typecheck/lint/build exit 0; test 7/7; live GET http://localhost:4000/api/v1/health → 200 not_initialized envelope; 404 NOT_FOUND + 400 VALIDATION_ERROR envelopes live.
 
 ## Incomplete edits and uncommitted changes
 
-- None incomplete. All corrections authored, mirrored, verified; continuity
-  docs updated. Committing and pushing now.
+None beyond the F2-B commit in progress.
 
 ## Blockers or unknowns
 
-- None currently. Push auth to be confirmed at push time.
+- None blocking. Contract ambiguities reported (not changed) in docs/F2_B_EVIDENCE.md.
+- Graceful shutdown not exercised live (Windows hard-terminate used).
 
 ## Exact next action
 
-Author corrections in `contracts/v1/` + verifier, regenerate manifest, verify,
-mirror, update continuity docs — all done. Committing, pushing `main`,
-verifying remote hash; then return F1-R2 evidence. Do not begin F2.
+Commit + push F2-B, verify remote hash, return F2-B evidence. Then STOP — F3 only when its prompt is assigned; no F4.
 
-## Related-repository dependencies
+## Planned checks
 
-Canonical repo; mirrors to four siblings. Ports 3000/3001/4001/8000. This
-repo's port: 4000.
+verify:contract, validate:schema (Node), typecheck, lint, build, test,
+live HTTP health + not-found checks on the assigned port (Node); interpreter,
+imports, pip check, pytest, live uvicorn on 8000 (Python).
+
+## Processes started by Agent B
+
+Started for live checks (19:35 IST) and stopped: sim node 8184, auditor node 21296, python launcher 15116 → interpreter 9456. None left running; ports 4000/4001/8000 free.
 
 ## Commit reference
 
-F1-R1: `3000b9d5893accc631bce9882aae71e5d8cf13c5` (pushed, verified).
-F1-R2: none yet.
+Base: `f64ee215d4b3fc5021eadf8ec5eb7aeef290a024`. F2-B: the commit containing this file (hash in the F2-B return report).

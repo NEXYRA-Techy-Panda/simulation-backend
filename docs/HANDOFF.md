@@ -2,8 +2,8 @@
 
 ## 0. Continuity and current layer (F0.1, 2026-09-24)
 
-- Current layer: **F1-R2** (contract v1.0.1 corrections) — status
-  **completed**, review **pending**. Contract: **1.0.1 defined** (canonical
+- Current layer: **F2-B** (backend application scaffold) — status
+  **completed**, review **pending** (F1-R2 accepted based on supplied evidence). Contract: **1.0.1 defined** (canonical
   `simulation-backend/contracts/v1/`, mirrored to siblings; replaces the
   unaccepted 1.0.0 prototype, no backward compatibility claimed).
 - Continuity files: [ACTIVE_TASK.md](ACTIVE_TASK.md) and [PROGRESS_LOG.md](PROGRESS_LOG.md).
@@ -60,6 +60,26 @@
   overrides, concrete Python A/B requests with bounds, full API paths +
   scaffold health states. 75/75 in all five repos; CSV-alone parity unchanged.
   History preserved.
+- F2-B addendum (2026-09-24, implementation completed, review **pending**):
+  F1-R2 (contract 1.0.1) was accepted by the architecture lead based on
+  supplied evidence. Contract 1.0.1 is the baseline, and `contracts/v1` + the
+  verifier were left unmodified (verifier 75/75).
+  Full evidence: [F2_B_EVIDENCE.md](F2_B_EVIDENCE.md).
+  Implemented: Express 5.2.1 + TypeScript 6.0.3 scaffold on Node 24.21.0
+  (npm 11.19.0), exact pins + package-lock.json. `src/app.ts` (createApp) is
+  separate from `src/server.ts` (listen + SIGINT/SIGTERM graceful shutdown).
+  Env config, CORS for one origin, 100kb JSON limit, contract envelopes,
+  NOT_FOUND/VALIDATION_ERROR/REQUEST_TOO_LARGE/INTERNAL_ERROR handling. ONLY
+  `GET /api/v1/health` → `{"status":"not_initialized","run_id":null,
+  "sim_time_utc":null,"contract_version":"1.0.1"}` inside `{data,meta}`.
+  Formal schema validation: `npm run validate:schema` (Ajv 8.20.0 Draft
+  2020-12, strict) 24/24. typecheck/lint/build exit 0; tests 7/7; live check
+  on http://localhost:4000 passed, and the process was stopped.
+  Commands: `npm ci`, `npm run dev|build|start|typecheck|lint|test|verify:contract|validate:schema`.
+  Env names: PORT (4000), HOST (127.0.0.1), FRONTEND_ORIGIN
+  (http://localhost:3000), JSON_BODY_LIMIT (100kb), SHUTDOWN_TIMEOUT_MS (10000).
+  Deliberately not implemented: DB/migrations, inventory, simulation state,
+  Socket.IO, history/export. Next layer: **F3**, pending its assigned prompt.
 
 ## 1. Purpose and owner
 
