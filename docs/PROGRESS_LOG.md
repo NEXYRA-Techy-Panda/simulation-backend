@@ -614,3 +614,22 @@ correction entry; do not rewrite history.
   holding port 19001), typecheck, lint, build clean, verify:contract 75/75,
   validate:schema pass.
 - Next: representative month generation + evidence + docs.
+
+---
+
+## 2026-09-25 03:40 +05:30 (IST) — K005-PREP completed (branch preparation; review pending)
+
+- Representative month (scratch DB, in-process harness on an ephemeral port,
+  real HTTP): `{month:"2026-01", seed:20260101, occupancy:{scheduled, 14}}` →
+  `succeeded`; 267,840 steps / 44,640 intervals; 803,520 device + 223,200 room
+  rows, 0 partial; `2025-12-31T18:30:00Z`→`2026-01-31T18:30:00Z`; office
+  1,331.376 kWh (rooms reconcile; cumulative mismatch ≤1.9e-10); fridge
+  111.6 kWh = 150 W × 744 h; ≈208 s wall; memory point samples heap 18–36 MB /
+  RSS 93–127 MB (not peaks); interactive checkpoint unchanged and recovery
+  returned the interactive run.
+- Evidence: `docs/K005_HISTORY_GENERATION_PREP_EVIDENCE.md` (interface,
+  decisions, isolation, verification, suitability, K003/K004 integration).
+- Added `scripts/k005-month-run.ts`. HANDOFF addendum added (branch-local).
+- Not done: push/merge/deploy, export (K003), mounting in app.ts,
+  shutdown.test.ts on this laptop (port 19001 held by VS Code).
+- Next: review; integration steps in evidence §10. Stop after K005-PREP.

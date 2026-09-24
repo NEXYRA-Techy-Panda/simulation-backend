@@ -22,7 +22,7 @@ rewiring, merge, push or deployment.
 
 ## Task status
 
-in_progress
+completed (branch preparation only; not merged, pushed or deployed)
 
 ## Review status
 
@@ -46,8 +46,8 @@ at task start). Git identity: existing repo-local mohan-madhu (no global change)
 
 ## Last checkpoint timestamp, including timezone
 
-2026-09-25 03:15 +05:30 (IST) — implementation group 1 committed locally (engine batch
-mode, jobs, routes, 19 tests); next: month run + evidence.
+2026-09-25 03:40 +05:30 (IST) — month run succeeded (Jan 2026, 44,640 intervals,
+1,331.376 kWh); evidence written; final local commit.
 
 ## Design decisions (narrow, documented)
 
@@ -69,13 +69,21 @@ port forwarding). Not touched. Tests use port 0 only; the pre-existing
 
 ## Exact next action
 
-Run one representative month generation (scratch DB, ephemeral-port harness),
-record results in K005 evidence; update HANDOFF; commit locally.
+None for M-C (stop after K005-PREP). For the integrating agent: review, then
+apply the mounting step and K003 run-selectable export described in
+[K005_HISTORY_GENERATION_PREP_EVIDENCE.md](K005_HISTORY_GENERATION_PREP_EVIDENCE.md)
+§10; renumber migration 004 if another 004 lands first; re-run
+`test/history.test.ts` after K004 merges; run `shutdown.test.ts` where port
+19001 is free.
 
 ## Processes started by M-C
 
-None persistent.
+None remaining (month-run harness exited, ephemeral port closed). Scratch DB kept:
+`%TEMP%
+exyra-k005\month-2026-01-20260924T213403Z\` (history.sqlite ≈364 MB + summary.json).
 
 ## Commit reference
 
-Base `929e78e`. K005-PREP: none yet (local commits only; no push).
+Base `929e78e`. Local commits on `mohan/k005-history-prep`: `1975c8d`
+(implementation + tests) and a follow-up docs/script commit (see git log).
+Not pushed.
