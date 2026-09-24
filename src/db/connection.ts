@@ -40,6 +40,31 @@ export function openDatabase(path: string, { busyTimeoutMs = 5000 }: OpenOptions
   return db;
 }
 
+/**
+ * Opens a separate read-only connection for a consistent WAL export snapshot.
+ * It never runs write-producing PRAGMAs (including optimize) and is intended
+ * for file-backed databases; in-memory callers should inject their existing
+ * connection instead.
+ */
+export function openReadOnlyDatabase(path: string, { busyTimeoutMs = 5000 }: OpenOptions = {}): Database {
+  if (path === MEMORY) throw new Error('A separate read-only export connection requires a file-backed database');
+  const db = new DatabaseSync(resolve(path), {
+    readOnly: true,
+    enableForeignKeyConstraints: true,
+  });
+  try {
+    db.exec(`PRAGMA busy_timeout = ${Math.max(0, Math.trunc(busyTimeoutMs))}`);
+    db.exec('PRAGMA foreign_keys = ON');
+    db.exec('PRAGMA query_only = ON');
+    const { foreign_keys: fk } = db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number };
+    if (fk !== 1) throw new Error('SQLite foreign-key enforcement could not be enabled on the read-only connection');
+    return db;
+  } catch (err) {
+    db.close();
+    throw err;
+  }
+}
+
 /** Closes the connection if open. Safe to call more than once. */
 export function closeDatabase(db: Database): void {
   if (!db.isOpen) return;

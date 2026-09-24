@@ -1,7 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import { createApp } from './app.js';
 import { type Config, ConfigError, loadConfig } from './config.js';
-import { closeDatabase, openDatabase } from './db/connection.js';
+import { MEMORY, closeDatabase, openDatabase, openReadOnlyDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { SimulationEngine } from './engine/engine.js';
 import { loadLocalEnv } from './env.js';
@@ -39,7 +39,13 @@ console.log(recovered
   : 'no active run; engine not_initialized until start');
 
 const { host, port, shutdownTimeoutMs } = config;
-const server = createApp(config, { db, engine }).listen(port, host, () => {
+const exportDatabase = config.databasePath === MEMORY
+  ? { open: () => db }
+  : {
+      open: () => openReadOnlyDatabase(config.databasePath, { busyTimeoutMs: config.sqliteBusyTimeoutMs }),
+      close: (reader: typeof db) => reader.close(),
+    };
+const server = createApp(config, { db, engine, exportDatabase }).listen(port, host, () => {
   const actual = (server.address() as AddressInfo).port;
   console.log(`simulation-backend listening on http://${host}:${actual} (health: /api/v1/health, pid ${process.pid})`);
 });

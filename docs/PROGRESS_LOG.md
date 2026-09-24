@@ -576,3 +576,27 @@ correction entry; do not rewrite history.
   activation (contract CSV/JSON), then validate a run's dataset against
   `energy-ml-service` `POST /v1/analyze`. Do not start Socket.IO, environment/
   comfort, faults or other features until assigned.
+
+---
+
+## 2026-09-25 02:41:16 +05:30 (IST) — K003 historical export implementation checkpoint (Kishore | K-A — OpenCode)
+
+- Resumed clean deployment baseline `929e78e`; preserved K002/schema v3 and found
+  no earlier K003 implementation. Ownership transfer is now recorded as
+  Kishore | K-A — OpenCode.
+- Added paginated run coverage plus strict GET/POST JSON/standalone-CSV export,
+  per-request read-only WAL snapshots, run snapshots, K002 effective-time
+  mapping, legacy rejection, exact aggregation/partial/gap rules, bounded
+  streaming and format-independent content/selection identity.
+- New focused tests plus regressions: **77/77**; typecheck, lint and build green;
+  contract **75/75**; schema **24/24**.
+- Real scratch HTTP export: 18 rows, `0.0027999999990000004` kWh. Pinned auditor
+  `67998d5` pure parser/validator accepted JSON and CSV with zero errors and the
+  same semantic fingerprint. Full auditor DB import is not claimed: isolated
+  `better-sqlite3@13.0.3` native build could not find Python.
+- No migration/dependency/lockfile/contract/production DB/deployment change.
+  Local :19001 and frontend :3100 were stopped; ports clear. Evidence:
+  `docs/K003_EXPORT_EVIDENCE.md`.
+- Review pending. Exact next action: final docs/diff/staged review, all gates,
+  normal commit/push and remote hash verification. Stop after K003; do not begin
+  K004.

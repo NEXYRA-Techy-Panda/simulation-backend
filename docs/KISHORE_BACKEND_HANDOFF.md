@@ -4,13 +4,26 @@ Prepared 2026-09-24 by Agent B (Claude Code) for Mohan (assignment P010).
 Documentation only: no simulator source, migration or contract was changed
 in P010.
 
+## K003 update (2026-09-25, Kishore | K-A — OpenCode)
+
+K002 remains implemented/review pending. K003 now implements the historical
+run catalog and strict JSON/standalone-CSV export with a consistent read-only
+WAL snapshot, K002 run activation, all six aggregation resolutions, honest
+partial/gap handling, bounded streaming and format-independent export identity.
+`npm test` is 77/77; contract/schema are 75/75 and 24/24. Pinned auditor pure
+import validation accepted both formats, while full auditor DB acceptance is
+explicitly unclaimed due the local `better-sqlite3` build tool limitation. See
+[K003_EXPORT_EVIDENCE.md](K003_EXPORT_EVIDENCE.md). Historical statements below
+that say export is unimplemented are superseded by this addendum.
+
 > **Status of the foundation handoff (F6):** **not complete.** This document
 > covers the simulator **backend**. Frontend completion (OpenCode) and
 > end-to-end export → auditor import integration are separate, still-open
 > work.
 >
-> **Review record:** P008 occupancy/schedule behaviour accepted based on
-> supplied evidence; run-policy timing defect remains open.
+> **Historical review record:** P008 occupancy/schedule behaviour was accepted
+> based on supplied evidence while the run-policy timing defect was still open.
+> K002 resolved that defect; current status is in the K003 addendum above.
 
 ## 0. Before you implement anything
 
@@ -39,7 +52,7 @@ Every new task starts with this protocol (see
 | F2-B scaffold | `1418f5214999b984b09f6ef470879520451ae683` | accepted (supplied evidence); graceful shutdown later verified via IPC |
 | P002 / F3-S SQLite + inventory | `b0f569ac16503112b25e4a9845d4c861f29a2165` | accepted (supplied evidence) |
 | P004 / K1 clock + energy loop | `93da205aa0edbc6cc308c9cce7c1af19216f10df` | accepted (supplied evidence) |
-| P008 / K3–K4 occupancy + schedules | `6d2630973139c5612d4e8c78cd928bc994ae2ca0` | **P008 occupancy/schedule behaviour accepted based on supplied evidence; run-policy timing defect remains open.** |
+| P008 / K3–K4 occupancy + schedules | `6d2630973139c5612d4e8c78cd928bc994ae2ca0` | P008 behaviour accepted; its then-open timing defect was resolved by K002. |
 | P010 handoff docs (this file) | reported in the P010 return report after push | pending |
 
 - Remote: `https://github.com/NEXYRA-Techy-Panda/simulation-backend.git`,
@@ -61,11 +74,11 @@ npm run dev                # tsx watch src/server.ts → http://localhost:19001
 
 | Command | Purpose |
 |---|---|
-| `npm run db:migrate` | forward-only, checksum-guarded migrations (001 schema, 002 engine checkpoints) |
+| `npm run db:migrate` | forward-only, checksum-guarded migrations (001 schema, 002 engine checkpoints, 003 run-policy activation) |
 | `npm run db:seed` | inserts **missing** demo inventory only (5 rooms, 18 devices, 20 policies); never overwrites edits |
 | `npm run build` / `npm start` | `tsc` → `dist/`; `node dist/server.js` |
 | `node dist/cli/migrate.js` / `node dist/cli/seed.js` | compiled equivalents (VPS) |
-| `npm test` | 56 tests (node:test via tsx; temp/in-memory databases only) |
+| `npm test` | 77 tests (node:test via tsx; temp/in-memory databases only) |
 | `npm run typecheck` / `npm run lint` | `tsc --noEmit` / ESLint |
 | `npm run verify:contract` / `npm run validate:schema` | contract semantic checks (75) / Ajv JSON Schema 2020-12 checks (24) |
 
@@ -88,6 +101,9 @@ npm run dev                # tsx watch src/server.ts → http://localhost:19001
 |---|---|
 | `GET /api/v1/health` | `not_initialized` (null run/time) until a run exists, then `ok` with the real run id and processed time |
 | `GET /api/v1/inventory` | database-backed rooms, devices and the latest policy versions |
+| `GET /api/v1/runs?page=1&page_size=50` | historical run catalog with committed persisted coverage and exportability; never uses live sim time as coverage |
+| `GET /api/v1/export?run_id=...&format=json\|csv&from=...&to=...&interval_seconds=...` | raw contract-1.0.1 JSON or standalone CSV from one read-only WAL snapshot |
+| `POST /api/v1/export` | same closed export fields as JSON for additive API parity |
 | `GET /api/v1/state` | authoritative snapshot: lifecycle, seq, sim time, rooms, devices, office totals, occupancy (stable occupants), calendar, overrides, pending changes, partial interval |
 | `POST /api/v1/control/start` `{speed?, seed?}` | new run (seed only here or on reset) or resume |
 | `POST /api/v1/control/pause` / `resume {speed?}` / `reset {seed?}` / `speed {speed}` | lifecycle; speeds 1/2/10/60/100/1000 |
@@ -218,9 +234,9 @@ resolution. Evidence:
   later-timeline change is asserted to reference only revisions effective at or
   before each interval, with the prior run's history unchanged, and a
   contract-1.0.1-shaped dataset is built **in a test** and schema-validated.
-  The production export endpoint is **still not implemented**, and
-  `energy-ml-service` `POST /v1/analyze` acceptance was **not** run (schema
-  validity alone does not prove effective-time semantics).
+  K003 now uses the same run-scoped mapping in the production exporter; a
+  post-calendar reset export regression and pinned-auditor pure validation are
+  recorded in `K003_EXPORT_EVIDENCE.md`.
 
 ## 7. Known limitations (accepted for now)
 
@@ -250,9 +266,8 @@ None of this is implemented:
    command acks, replay/snapshot fallback (contract API.md).
 3. **Environment and comfort controls:** room temperature/humidity commands
    (`POST /api/v1/environment`) and AC comfort behaviour.
-4. **History generation and exports:** batch month/custom-range generation
-   (`/api/v1/history/jobs`) and CSV/JSON export (`/api/v1/export`) in the
-   contract's self-contained formats.
+4. **Batch history generation:** `/api/v1/history/jobs` for month/custom-range
+   generation. K003 historical export of already committed runs is complete.
 5. **Fault scenarios**, which must never leak into exports.
 6. **Matched original/improved simulation:** the same occupancy/environment
    timeline, using the independent occupancy RNG stream.

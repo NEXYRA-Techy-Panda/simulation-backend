@@ -9,21 +9,20 @@ and auditing project.
 - **Owner**: Mohan (foundation F0–F6) → Kishore Kumar (after handoff).
 - **Fixed port**: `19001`. Serves `simulation-frontend` on `3000`.
 
-## Status (P008 / K3–K4, 2026-09-24)
+## Status (K003, 2026-09-25)
 
-Authoritative clock + energy loop (K1) plus occupancy allocation and
-operating schedules (K3–K4) implemented; review pending. Routes:
+Authoritative clock/energy, occupancy/schedules, K002 run-scoped policy
+activation, and historical export are implemented; review pending. Routes:
 `GET /api/v1/health`, `GET /api/v1/inventory`, `GET /api/v1/state`,
-`POST /api/v1/control/{start,pause,resume,reset,speed}`,
-`POST /api/v1/occupancy`, `POST /api/v1/calendar`, `POST /api/v1/devices/:id`.
-20 stable seeded occupants (manual/scheduled modes, meeting/lunch
-redistribution), schedule + vacancy-grace device control, overrides that
-clear back to policy, calendar changes as new policy versions effective at
-the next minute boundary. Not yet: Socket.IO, history generation, export,
-fault injection, comfort/thermal behaviour. Design + complete API examples:
-[SIMULATION_ENGINE.md](docs/SIMULATION_ENGINE.md); evidence:
-[P008 K3–K4](docs/P008_K3_K4_EVIDENCE.md), [P004 K1](docs/P004_K1_EVIDENCE.md),
-[P002 F3-S](docs/P002_F3_S_EVIDENCE.md).
+`GET /api/v1/runs`,
+`GET|POST /api/v1/export`, and the existing control/occupancy/calendar/device
+routes. Export reads one consistent read-only SQLite snapshot, never advances
+or flushes the engine, and emits contract-1.0.1 JSON or standalone CSV for all
+six supported resolutions. It rejects gaps and ambiguous coarse policy buckets
+rather than fabricating data. Not yet: Socket.IO, batch history generation,
+fault injection, and comfort/thermal behaviour. Design + complete API examples:
+[SIMULATION_ENGINE.md](docs/SIMULATION_ENGINE.md); K003 evidence:
+[K003_EXPORT_EVIDENCE.md](docs/K003_EXPORT_EVIDENCE.md).
 
 Quick demo (after `npm run db:setup` and `npm run dev`):
 
@@ -32,6 +31,8 @@ curl -X POST http://localhost:19001/api/v1/control/start -H "Content-Type: appli
 curl -X POST http://localhost:19001/api/v1/occupancy -H "Content-Type: application/json" -d "{\"mode\":\"manual\",\"total\":12}"
 curl -X POST http://localhost:19001/api/v1/devices/dev-meeting-light -H "Content-Type: application/json" -d "{\"manual_state\":\"on\"}"
 curl http://localhost:19001/api/v1/state
+curl http://localhost:19001/api/v1/runs
+curl -L "http://localhost:19001/api/v1/export?run_id=<run>&format=json&from=<UTC>&to=<UTC>&interval_seconds=60" --output run.json
 curl -X POST http://localhost:19001/api/v1/control/pause
 ```
 
@@ -56,7 +57,8 @@ Startup applies pending migrations, recovers the most recent active run as **pau
 — nothing deletes data. Driver: built-in `node:sqlite` (no native addon).
 
 Checks: `curl http://localhost:19001/api/v1/health`,
-`curl http://localhost:19001/api/v1/inventory`.
+`curl http://localhost:19001/api/v1/inventory`,
+`curl http://localhost:19001/api/v1/runs`.
 
 ## Configuration
 
@@ -88,5 +90,6 @@ Docs:
 - [Simulation engine (K1)](docs/SIMULATION_ENGINE.md)
 - [P004 K1 evidence](docs/P004_K1_EVIDENCE.md)
 - [P008 K3–K4 evidence](docs/P008_K3_K4_EVIDENCE.md)
+- [K003 historical export evidence](docs/K003_EXPORT_EVIDENCE.md)
 - [Data contract v1](contracts/v1/CONTRACT.md) (canonical copy in this repo)
 - [Service interfaces](contracts/v1/API.md)

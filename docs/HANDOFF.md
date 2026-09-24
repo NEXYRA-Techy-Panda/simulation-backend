@@ -1,6 +1,25 @@
 # HANDOFF — simulation-backend
 
-## 0. Continuity and current layer (F0.1, 2026-09-24)
+## K003 current addendum (2026-09-25, Kishore | K-A — OpenCode)
+
+- Historical export is implemented, review pending. `GET /api/v1/runs` exposes
+  committed coverage; strict `GET|POST /api/v1/export` emits contract-1.0.1 JSON
+  or standalone CSV for all six resolutions.
+- Production uses a per-request read-only SQLite WAL snapshot. It never advances
+  or flushes the engine, reads run snapshots, maps K002 activation to exported
+  effective times, and rejects invalid legacy/gapped/ambiguous history.
+- Equivalent JSON/CSV share a content/selection-derived export ID. Bounds: 31
+  days, 1M source device rows, 1M source room rows, two concurrent exports.
+- Gates: 77/77 tests, typecheck/lint/build green, contract 75/75, schema 24/24.
+  Pinned auditor `67998d5` pure parsing/validation accepted equivalent real JSON
+  and CSV with the same semantic fingerprint. Full auditor DB re-import remains
+  unclaimed because the pinned native module could not build without Python.
+- No production DB/service/deployment was touched. Evidence:
+  [K003_EXPORT_EVIDENCE.md](K003_EXPORT_EVIDENCE.md). Exact next action is final
+  diff/staged-file review, normal backend commit/push and remote-hash check; do
+  not start K004. Older sections below are preserved historical evidence.
+
+## 0. Historical continuity (F0.1, 2026-09-24)
 
 - Current layer: **K001 / K0 — setup and onboarding** (Agent K — Kishore's
   coding agent) — status **completed**, review **pending**. Kishore's laptop

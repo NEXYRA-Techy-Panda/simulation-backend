@@ -1457,12 +1457,51 @@ Response `200`:
 }
 ```
 
+## K003 historical export
+
+Implemented routes:
+
+- `GET /api/v1/runs?page=1&page_size=50` — persisted committed coverage and
+  exportability for historical selection. Live `sim_time_utc` and the checkpoint
+  accumulator are deliberately not used as coverage.
+- `GET /api/v1/export?run_id=...&format=json|csv&from=...&to=...&interval_seconds=...`
+- `POST /api/v1/export` with the same closed JSON fields.
+
+`from` is inclusive and `to` exclusive. Supported aggregation intervals are
+60/300/600/900/1800/3600 seconds. The start aligns to the run's persisted
+one-minute grid; a committed short final edge remains partial. File success is a
+raw attachment, not the normal API envelope.
+
+Each production request uses a separate read-only SQLite connection and one WAL
+read transaction. The simulation writer can continue, but one file sees one
+stable snapshot. Export never advances the engine or publishes its unfinished
+partial minute. A reset-published partial interval is committed history and is
+included honestly.
+
+The exporter reads `run_rooms`, `run_devices`, `run_policies`, and interval rows,
+never current inventory. K002 `active_from_utc` becomes each exported policy's
+contract `effective_from_utc`; global revision history is not changed. Legacy
+runs with null activation are checked against global history and rejected when
+inconsistent, never repaired.
+
+Aggregation sums energy/operating durations, duration-weights averages and
+fractions, preserves maxima, and takes the final cumulative counter. It rejects
+gaps, invalid reconciliation, incompatible metadata, and a coarse bucket that
+would mix policy refs. Missing data is never zero-filled. Bounds are 31 days,
+1,000,000 source device rows, 1,000,000 source room rows, and two concurrent
+exports. JSON/CSV stream with backpressure.
+
+`export_id` is a format-independent digest of run metadata, selected snapshot
+content, range and resolution. Equivalent JSON/CSV therefore share auditor
+identity, while changed content/range/resolution does not. All output is
+explicitly synthetic and contains no fault truth. Full evidence:
+[K003_EXPORT_EVIDENCE.md](K003_EXPORT_EVIDENCE.md).
+
 ## Remaining work (later layers)
 
 - Comfort/temperature-based AC control and thermal behaviour.
 - Staggered arrivals or role-based movement (not planned for MVP1).
 - Configurable start dates.
 - Socket.IO sequencing and replay.
-- Batch month generation.
-- CSV/JSON export.
+- Batch month generation and history jobs (K003 exports existing committed runs).
 - Fault controls.

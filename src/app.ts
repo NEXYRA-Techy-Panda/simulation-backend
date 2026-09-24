@@ -7,6 +7,7 @@ import { errorHandler, notFound } from './http/errors.js';
 import { requestId } from './http/requestId.js';
 import { healthRouter } from './routes/health.js';
 import { inventoryRouter } from './routes/inventory.js';
+import { exportsRouter, type ExportDatabaseProvider } from './routes/exports.js';
 import { simulationRouter } from './routes/simulation.js';
 
 export interface AppDeps {
@@ -14,17 +15,23 @@ export interface AppDeps {
   db: Database;
   /** The authoritative simulation engine for this process. */
   engine: SimulationEngine;
+  /** Dedicated read-only provider used for consistent export snapshots. */
+  exportDatabase?: ExportDatabaseProvider;
 }
 
-export function createApp(config: Config, { db, engine }: AppDeps): Express {
+export function createApp(config: Config, { db, engine, exportDatabase }: AppDeps): Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestId);
-  app.use(cors({ origin: config.frontendOrigin }));
+  app.use(cors({
+    origin: config.frontendOrigin,
+    exposedHeaders: ['Content-Disposition', 'X-Request-Id'],
+  }));
   app.use(express.json({ limit: config.jsonBodyLimit }));
 
   app.use('/api/v1', healthRouter(engine));
   app.use('/api/v1', inventoryRouter(db));
+  app.use('/api/v1', exportsRouter(exportDatabase ?? { open: () => db }));
   app.use('/api/v1', simulationRouter(engine));
 
   app.use(notFound);
