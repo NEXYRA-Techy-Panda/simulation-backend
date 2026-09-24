@@ -576,3 +576,43 @@ correction entry; do not rewrite history.
   activation (contract CSV/JSON), then validate a run's dataset against
   `energy-ml-service` `POST /v1/analyze`. Do not start Socket.IO, environment/
   comfort, faults or other features until assigned.
+
+---
+
+## 2026-09-25 02:03:00 +05:30 (IST) — K004-PREP prepared (actual, Agent K-B — FreeBuff, feature branch)
+
+- Assignment: K004-PREP — isolated environment/AC-consumption preparation.
+  Developer Kishore Kumar, Agent K-B — FreeBuff. Supporting Kishore batch 4 /
+  approximately 8 planned. **Branch-local work**: this entry is on
+  `kishore/k004-environment-prep`, not on `main`.
+- Isolation: separate worktree `../simulation-backend-k004` on the new branch
+  `kishore/k004-environment-prep`, based on the current committed `main`
+  `929e78e7b6b19bf586e131a6bc256e2b211e3bcf` (the reported deployment baseline).
+  K-A's simulator working copies, `simulation-frontend`, the auditor/Python
+  repositories and production infrastructure were not edited, stashed, reset,
+  cleaned, checked out or merged. `npm ci` ran only inside this worktree; the
+  lockfile and package scripts are unchanged.
+- Added (this branch): `src/environment/{constants,errors,climate,ac-power,index}.ts`
+  — pure validation/normalization for the contract room-climate fields
+  `temp_c`/`rh_pct` and the aggregate `avg_temp_c`/`avg_rh_pct`, plus the
+  deterministic demo AC power model; `test/environmentClimate.test.ts`,
+  `test/environmentAcPower.test.ts`; `docs/K004_ENVIRONMENT_PREP_EVIDENCE.md`.
+- Model: `demand = clamp01(max(0, temp_c − setpoint_c)/6 °C + occupancy × 0.03)`;
+  `power = nominal_power_w × (0.2 + 0.8 × demand)` when on, else the device
+  standby rating (default 0). Documented demo bounds `[0.2 × nominal, nominal]`;
+  `quantity` is never multiplied; humidity is validated but unused; non-AC and
+  always-on devices are rejected explicitly. No kWh is computed here.
+- Not done (deliberately): no route, no migration/persistence, no engine wiring,
+  no UI. Expected future engine call sites recorded by inspection:
+  `src/engine/engine.ts:137` (`powerOf`), `:408` (step power), `:545` (state
+  power), `:513` (room-interval climate), `:686-687` (run-level climate);
+  per-room climate state does not exist yet.
+- Verification (actual): focused tests **16/16** passed; full suite **77/77**
+  passed (61 pre-existing + 16 new); `typecheck` clean; `lint` 0 errors.
+  No service was started, no port bound, no database file created or modified,
+  no benchmark run; tests used in-memory/temp databases only.
+- Review status: **pending** (no self-assigned approval). Nothing merged into
+  `main`; not deployed.
+- Next action: review this preparation, then implement the environment route and
+  per-room climate state and wire `acPowerW` into `stepOnce()`/`getState()` under
+  a separate assignment. Do not treat this branch as complete K004 controls.

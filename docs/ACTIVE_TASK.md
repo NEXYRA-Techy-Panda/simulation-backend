@@ -1,5 +1,28 @@
 # ACTIVE_TASK — simulation-backend
 
+## Current task (branch-local) — K004-PREP
+
+**Developer Kishore Kumar | Agent K-B — FreeBuff | K004-PREP.** Prepared on the
+feature branch `kishore/k004-environment-prep` in the worktree
+`../simulation-backend-k004`, based on committed `main`
+`929e78e7b6b19bf586e131a6bc256e2b211e3bcf`. Status: **prepared, review
+pending**; engine/UI integration and a `main` release are still pending.
+
+- Scope delivered: an isolated `src/environment/` module (pure contract-shape
+  climate validation/normalization + a deterministic demo AC power model),
+  focused tests, and `docs/K004_ENVIRONMENT_PREP_EVIDENCE.md`.
+- Deliberately **not** done: routes, migrations/persistence, engine wiring and
+  UI are untouched; no service, database or deployment was touched.
+- Branch-local continuity is **not** evidence that `main` has this feature. The
+  K002 record below is preserved unchanged and still describes `main`.
+- Exact next action: review the preparation, then implement the environment
+  route plus per-room climate state and wire the model into
+  `stepOnce()`/`getState()` under a separate assignment.
+
+---
+
+## Preserved record from `main` (K002)
+
 ## Assignment / Layer ID
 
 K002 — K1 (contract checkout portability and run-policy timing).
