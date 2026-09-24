@@ -13,6 +13,10 @@ import { ApiError } from '../http/errors.js';
  *   pause  : running → paused; paused → no-op; no run → 409 CONFLICT
  *   reset  : any → NEW run (optional seed), paused, seq 0 (previous run ended, history kept)
  *   speed  : any; value must be 1|2|10|60|100|1000 (else 400)
+ * K004-FAST1 additions:
+ *   start/reset accept `interval_seconds` 60|3600 only when a run is created (else 409)
+ *   advance      : POST /control/advance {days: 1..31} — paused → running until the target, then paused
+ *   advance/stop : POST /control/advance/stop — stops at the processed step (paused); no-op when idle
  */
 export function simulationRouter(engine: SimulationEngine): Router {
   const router = Router();
@@ -22,8 +26,8 @@ export function simulationRouter(engine: SimulationEngine): Router {
   });
 
   router.post('/control/start', (req, res) => {
-    const body = objectBody(req, ['speed', 'seed']);
-    engine.start(body.speed, body.seed);
+    const body = objectBody(req, ['speed', 'seed', 'interval_seconds']);
+    engine.start(body.speed, body.seed, body.interval_seconds);
     sendData(res, engine.summary());
   });
 
@@ -39,8 +43,22 @@ export function simulationRouter(engine: SimulationEngine): Router {
   });
 
   router.post('/control/reset', (req, res) => {
-    engine.reset(objectBody(req, ['seed']).seed);
+    const body = objectBody(req, ['seed', 'interval_seconds']);
+    engine.reset(body.seed, body.interval_seconds);
     sendData(res, engine.summary());
+  });
+
+  router.post('/control/advance', (req, res) => {
+    const body = objectBody(req, ['days']);
+    if (!('days' in body)) throw new ApiError(400, 'VALIDATION_ERROR', 'days is required', 'days');
+    engine.advanceDays(body.days);
+    sendData(res, { ...engine.summary(), advance: (engine.getState() as { advance: unknown }).advance });
+  });
+
+  router.post('/control/advance/stop', (req, res) => {
+    objectBody(req, []);
+    engine.stopAdvance();
+    sendData(res, { ...engine.summary(), advance: (engine.getState() as { advance: unknown }).advance });
   });
 
   router.post('/control/speed', (req, res) => {

@@ -1,10 +1,27 @@
 # ACTIVE_TASK — simulation-backend (branch `mohan/k005-history-prep`, worktree)
 
-> Branch-local continuity for the isolated K005-PREP worktree. The `main`
-> working copy (`K:\NEXYRA\simulation-backend`, owner Kishore / K-A) keeps its
-> own ACTIVE_TASK; this file does not describe it.
+> Branch-local continuity for the isolated worktree `K:/simulation-backend-k005`
+> on Mohan's laptop. Kishore's `main` working copy / laptop keeps its own
+> ACTIVE_TASK; this file does not describe it.
 
 ## Assignment / Layer ID
+
+**K004-FAST1 — takeover and K005 continuation** (fast-days mode + hourly
+recording). Developer **Mohan** | Agent **M-C — Claude Code**. Previous
+assignee: Kishore K-B — GLM-5.3. Status: **in_progress** (started
+2026-09-25 03:55 +05:30 IST).
+
+- GLM (K-B) work: **not available on this laptop** — the remote has only
+  `main` (`929e78e`); no K004 branch, bundle, worktree or handoff found locally.
+  Proceeding from the verified K005 branch; nothing of GLM's is reused.
+- Plan: per-run recording interval (60 | 3600, immutable run config);
+  interactive `POST /control/advance {days}` + `/control/advance/stop` on the
+  existing wall-clock scheduler (≈1 simulated day per real second); history
+  jobs accept `interval_seconds: 3600`; frontend fast-days component in an
+  isolated simulation-frontend worktree; Git bundles for transfer.
+
+## Previous assignment in this worktree — K005-PREP (preserved)
+
 
 K005-PREP — simulator monthly history generation (backend batch preparation).
 Developer **Mohan** | Agent **M-C — Claude Code**. Supporting simulator batch

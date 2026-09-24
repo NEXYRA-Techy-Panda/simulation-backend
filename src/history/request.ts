@@ -1,12 +1,14 @@
 import type { Database } from '../db/connection.js';
-import { INTERVAL_SECONDS, KOLKATA_OFFSET_SECONDS, STEP_SECONDS } from '../engine/constants.js';
+import { INTERVAL_SECONDS, KOLKATA_OFFSET_SECONDS, type RecordingInterval, STEP_SECONDS, isRecordingInterval } from '../engine/constants.js';
 import { MAX_OCCUPANTS, type OccupancyMode } from '../engine/occupancy.js';
 import { isSeed } from '../engine/rng.js';
 import { ApiError } from '../http/errors.js';
 
 /**
  * K005-PREP history-job request validation (contracts/v1/API.md
- * `POST /api/v1/history/jobs`: `{ from, to, interval_seconds }`).
+ * `POST /api/v1/history/jobs`: `{ from, to, interval_seconds }`). `interval_seconds`
+ * is 60 (default) or 3600 (K004-FAST1 hourly recording); from/to must lie on
+ * local recording boundaries (local minutes / local hours, Asia/Kolkata).
  *
  * Additive fields (documented, not contract changes):
  *  - `month` "YYYY-MM": a local Asia/Kolkata calendar month, instead of from/to.
@@ -36,7 +38,7 @@ export const toUtc = (epoch: number): string => new Date(epoch * 1000).toISOStri
 export interface HistoryRequest {
   from_utc: string;
   to_utc: string;
-  interval_seconds: 60;
+  interval_seconds: RecordingInterval;
   month: string | null;
   seed: number;
   seed_source: 'request' | 'generated';
@@ -91,9 +93,12 @@ export function validateHistoryRequest(db: Database, body: Record<string, unknow
   if (body.environment !== undefined) {
     throw bad('job-specific environment is not supported: the committed engine uses a constant synthetic room climate', 'environment');
   }
-  if (body.interval_seconds !== undefined && body.interval_seconds !== INTERVAL_SECONDS) {
-    throw bad(`interval_seconds must be ${INTERVAL_SECONDS} (the engine's stored interval)`, 'interval_seconds');
+  if (body.interval_seconds !== undefined && !isRecordingInterval(body.interval_seconds)) {
+    throw bad('interval_seconds must be 60 or 3600', 'interval_seconds');
   }
+  const interval: RecordingInterval = (body.interval_seconds as RecordingInterval | undefined) ?? INTERVAL_SECONDS;
+  const aligned = (epoch: number): boolean => (epoch + KOLKATA_OFFSET_SECONDS) % interval === 0;
+  const unit = interval === INTERVAL_SECONDS ? 'minute' : 'local hour (UTC hh:30)';
 
   let from: number;
   let to: number;
@@ -107,8 +112,8 @@ export function validateHistoryRequest(db: Database, body: Record<string, unknow
     if (body.to === undefined) throw bad('to is required (or month)', 'to');
     from = parseUtc(body.from, 'from');
     to = parseUtc(body.to, 'to');
-    if (from % INTERVAL_SECONDS !== 0) throw bad('from must be on a minute boundary', 'from');
-    if (to % INTERVAL_SECONDS !== 0) throw bad('to must be on a minute boundary', 'to');
+    if (!aligned(from)) throw bad(`from must be on a ${unit} boundary`, 'from');
+    if (!aligned(to)) throw bad(`to must be on a ${unit} boundary`, 'to');
     if (to <= from) throw bad('to must be after from (half-open window [from, to))', 'to');
   }
   if (to - from > MAX_RANGE_SECONDS) throw new ApiError(413, 'REQUEST_TOO_LARGE', 'window exceeds 31 days; split it into several jobs', 'to');
@@ -152,7 +157,7 @@ export function validateHistoryRequest(db: Database, body: Record<string, unknow
   }
 
   return {
-    from_utc: toUtc(from), to_utc: toUtc(to), interval_seconds: 60, month, seed, seed_source: seedSource, occupancy,
-    expected_steps: (to - from) / STEP_SECONDS, expected_intervals: (to - from) / INTERVAL_SECONDS,
+    from_utc: toUtc(from), to_utc: toUtc(to), interval_seconds: interval, month, seed, seed_source: seedSource, occupancy,
+    expected_steps: (to - from) / STEP_SECONDS, expected_intervals: (to - from) / interval,
   };
 }

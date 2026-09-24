@@ -633,3 +633,36 @@ correction entry; do not rewrite history.
 - Not done: push/merge/deploy, export (K003), mounting in app.ts,
   shutdown.test.ts on this laptop (port 19001 held by VS Code).
 - Next: review; integration steps in evidence §10. Stop after K005-PREP.
+
+---
+
+## 2026-09-25 03:55 +05:30 (IST) — K004-FAST1 takeover started (Mohan's laptop, worktree `K:/simulation-backend-k005`)
+
+- Developer Mohan | M-C — Claude Code; previous assignee Kishore K-B — GLM-5.3.
+- Observed on Mohan's laptop only: branch `mohan/k005-history-prep` at
+  `0464c9a` (clean; K005 commits 1975c8d, 92aadd8, 0464c9a); remote
+  simulation-backend has only `main` `929e78e`; remote simulation-frontend
+  `main` `dbcbee9`. **No GLM/K004 work is reachable from this laptop** (no
+  branch, bundle, worktree or handoff) — recorded, not reconstructed. This
+  says nothing about the state of Kishore's laptop.
+- Another agent's frontend worktree exists (`K:/NEXYRA/simulation-frontend-visual`,
+  `mohan/sim-visual-01`) — not touched.
+- Contract 1.0.1 already allows `interval_seconds` 3600 (no contract change).
+
+---
+
+## 2026-09-25 04:30 +05:30 (IST) — K004-FAST1 group 1: hourly recording + advance days (backend)
+
+- Per-run recording interval 60 | 3600 s in immutable run config
+  (`interval_seconds`, same key as before; 60 s runs byte-identical). Boundaries
+  on the LOCAL clock (local minutes / local hours = UTC hh:30). Calendar changes
+  take effect at the next recording boundary (one policy ref per interval).
+- `POST /control/advance {days 1..31}` / `POST /control/advance/stop`: the
+  existing WallClockScheduler at 86,400 sim-s per real second, clamped to the
+  target, then paused; pause also stops; start/resume/reset refused during an
+  advance; advance refused while the clock runs; `state.advance` shows
+  processed vs expected steps and the last outcome. Not resumed after restart.
+- History jobs accept `interval_seconds: 3600` (local-hour aligned);
+  branch-local migration 005 rebuilds history_jobs to allow it (004 untouched).
+- Tests: new `test/fast.test.ts` 13/13; total 92/92 (all files except
+  shutdown.test.ts); typecheck/lint/build clean; schema 24/24; contract 75/75.

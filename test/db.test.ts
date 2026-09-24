@@ -63,9 +63,9 @@ describe('migrations', () => {
     withFileDb((path) => {
       const db = openDatabase(path);
       try {
-        // K002 adds migration 3 (run-scoped policy activation); K005-PREP adds branch-local migration 4 (history jobs).
-        assert.deepEqual(runMigrations(db), { applied: [1, 2, 3, 4], currentVersion: 4 });
-        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 4 });
+        // K002 adds migration 3 (run-scoped policy activation); K005-PREP/K004-FAST1 add branch-local migrations 4–5 (history jobs).
+        assert.deepEqual(runMigrations(db), { applied: [1, 2, 3, 4, 5], currentVersion: 5 });
+        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 5 });
         const tables = (db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name").all() as { name: string }[])
           .map((r) => r.name);
         for (const t of ['buildings', 'rooms', 'devices', 'policies', 'policy_versions', 'simulation_runs', 'run_rooms',

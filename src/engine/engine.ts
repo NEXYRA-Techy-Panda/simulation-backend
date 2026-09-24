@@ -5,7 +5,8 @@ import { addPolicyVersion } from '../db/inventory.js';
 import { createRun } from '../db/runs.js';
 import { ApiError } from '../http/errors.js';
 import {
-  DEFAULT_SPEED, INITIAL_SIM_TIME_UTC, INTERVAL_SECONDS, RUN_CONFIG, type Speed, STEP_SECONDS, isSpeed,
+  ADVANCE_SPEED, DEFAULT_SPEED, INITIAL_SIM_TIME_UTC, INTERVAL_SECONDS, KOLKATA_OFFSET_SECONDS, MAX_ADVANCE_DAYS, RUN_CONFIG,
+  type RecordingInterval, type Speed, STEP_SECONDS, isRecordingInterval, isSpeed,
 } from './constants.js';
 import { MAX_OCCUPANTS, OccupancyModel, type OccupancyMode, type OccupancyState } from './occupancy.js';
 import { isSeed } from './rng.js';
@@ -122,6 +123,8 @@ interface RunRuntime {
   officeHours: (PolicyRef & { rules: OfficeHoursRules }) | null;
   occupancyPolicy: PolicyRef | null;
   pending: PendingChange[];
+  /** Recording interval from the immutable run config (60 or 3600). */
+  recordSeconds: RecordingInterval;
 }
 
 export interface EngineOptions {
@@ -145,9 +148,11 @@ export interface BatchHooks {
 }
 
 export interface BatchRunInput {
-  /** Minute-aligned UTC start; the run's clock, run_start_utc and policy activation all begin here. */
+  /** Recording-boundary-aligned UTC start; the run's clock, run_start_utc and policy activation all begin here. */
   startUtc: string;
   seed: number;
+  /** Recording interval stored in the run config (default 60). */
+  recordSeconds?: RecordingInterval;
   /** Extra immutable run-config entries (purpose, job id, provenance). */
   config: Record<string, unknown>;
   /** Runtime occupancy for the pinned occupancy mode (no policy revision is minted). */
@@ -158,7 +163,25 @@ const toEpoch = (utc: string): number => Date.parse(utc) / 1000;
 const toUtc = (epoch: number): string => new Date(epoch * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 const refString = (r: PolicyRef): string => `${r.policy_id}:${r.version}`;
 const powerOf = (d: DeviceRuntime, on: boolean): number => (on ? d.nominal_power_w : (d.standby_power_w ?? 0));
-const nextMinute = (epoch: number): number => Math.ceil(epoch / INTERVAL_SECONDS) * INTERVAL_SECONDS;
+/**
+ * Recording boundaries are aligned to the building's LOCAL clock (Asia/Kolkata,
+ * fixed +05:30): local minutes for 60 s runs (identical to UTC minutes) and
+ * local hours for 3600 s runs (UTC hh:30).
+ */
+const isBoundary = (epoch: number, record: number): boolean => (epoch + KOLKATA_OFFSET_SECONDS) % record === 0;
+const nextBoundary = (epoch: number, record: number): number =>
+  Math.ceil((epoch + KOLKATA_OFFSET_SECONDS) / record) * record - KOLKATA_OFFSET_SECONDS;
+
+/** Interactive advance-days state (not persisted: a restart recovers the run paused). */
+interface AdvanceState {
+  requested_days: number;
+  start_epoch: number;
+  target_epoch: number;
+}
+interface AdvanceResult extends AdvanceState {
+  outcome: 'completed' | 'stopped' | 'interrupted' | 'failed';
+  end_epoch: number;
+}
 const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
 const emptyDeviceAcc = (): DeviceAcc => ({
@@ -178,16 +201,19 @@ export class SimulationEngine {
   readonly scheduler: WallClockScheduler;
   private readonly wallClock: () => Date;
   private readonly batch: BatchHooks | null;
+  private advance: AdvanceState | null = null;
+  private lastAdvance: AdvanceResult | null = null;
 
   constructor(private readonly db: Database, options: EngineOptions = {}) {
     this.wallClock = options.wallClock ?? (() => new Date());
     this.batch = options.batch ?? null;
     this.scheduler = new WallClockScheduler(
-      (steps) => this.advanceSteps(steps),
+      (steps) => this.scheduledSteps(steps),
       this.speed,
       (err) => {
         console.error('Simulation step failed; engine paused:', err);
         this.status = this.run ? 'paused' : 'not_initialized';
+        this.endAdvanceState('failed');
       },
       options.schedulerDeps,
       options.scheduler,
@@ -218,28 +244,67 @@ export class SimulationEngine {
   }
 
   /** not_initialized → new run, running; paused → running; running → no-op (no second timer). */
-  start(speed?: unknown, seed?: unknown): void {
+  start(speed?: unknown, seed?: unknown, intervalSeconds?: unknown): void {
     this.interactiveOnly('start');
+    this.noAdvance('start');
     if (seed !== undefined && this.run) {
       throw new EngineError(409, 'CONFLICT', 'seed only applies when a run is created; use reset with a seed', 'seed');
     }
+    if (intervalSeconds !== undefined && this.run) {
+      throw new EngineError(409, 'CONFLICT', "interval_seconds only applies when a run is created; an existing run's recording interval never changes", 'interval_seconds');
+    }
     const checkedSeed = this.checkSeed(seed);
+    const record = this.checkInterval(intervalSeconds);
     if (speed !== undefined) this.setSpeed(speed);
-    if (!this.run) this.run = this.createNewRun(checkedSeed);
+    if (!this.run) this.run = this.createNewRun(checkedSeed, undefined, record);
     this.goRunning();
   }
 
   /** paused → running; running → no-op; no run → 409. */
   resume(speed?: unknown): void {
     this.interactiveOnly('resume');
+    this.noAdvance('resume');
     if (!this.run) throw new EngineError(409, 'CONFLICT', 'No simulation run exists; use start');
     if (speed !== undefined) this.setSpeed(speed);
     this.goRunning();
   }
 
-  /** running → paused (freezes at the last processed step); paused → no-op; no run → 409. */
+  /**
+   * K004-FAST1: advances the CURRENT interactive run by `days` whole simulated
+   * days (1–31), paced at ≈ one simulated day per real second, through the same
+   * wall-clock scheduler (bounded batches, yields between them, no skipped
+   * steps). Commands stay available and apply at the processed step boundary
+   * between batches. Pauses at completion, on stop or on pause. Only from
+   * paused: one runner per run.
+   */
+  advanceDays(days: unknown): void {
+    this.interactiveOnly('advance');
+    const run = this.requireRun();
+    if (!Number.isInteger(days) || (days as number) < 1 || (days as number) > MAX_ADVANCE_DAYS) {
+      throw new EngineError(400, 'VALIDATION_ERROR', `days must be a whole number from 1 to ${MAX_ADVANCE_DAYS}`, 'days');
+    }
+    if (this.advance) throw new EngineError(409, 'CONFLICT', 'An advance is already in progress; stop it first');
+    if (this.status === 'running') throw new EngineError(409, 'CONFLICT', 'The clock is running; pause it before advancing (one runner per run)');
+    this.advance = { requested_days: days as number, start_epoch: run.simEpoch, target_epoch: run.simEpoch + (days as number) * 86_400 };
+    this.scheduler.setSpeed(ADVANCE_SPEED);
+    this.status = 'running';
+    this.scheduler.start();
+    run.seq++;
+    this.writeCheckpoint();
+  }
+
+  /** Stops an advance at the last processed step (paused). No-op when none is active. */
+  stopAdvance(): void {
+    if (this.advance) this.finishAdvance('stopped');
+  }
+
+  /** running → paused (freezes at the last processed step); paused → no-op; no run → 409. Also stops an advance. */
   pause(): void {
     if (!this.run) throw new EngineError(409, 'CONFLICT', 'No simulation run exists');
+    if (this.advance) {
+      this.finishAdvance('stopped');
+      return;
+    }
     if (this.status !== 'running') return;
     this.scheduler.stop();
     this.status = 'paused';
@@ -252,9 +317,11 @@ export class SimulationEngine {
    * partial=true and its actual duration) and creates a NEW run at the
    * initial time with seq 0, paused. Old runs and their readings are kept.
    */
-  reset(seed?: unknown): void {
+  reset(seed?: unknown, intervalSeconds?: unknown): void {
     this.interactiveOnly('reset');
+    this.noAdvance('reset');
     const checkedSeed = this.checkSeed(seed);
+    const record = this.checkInterval(intervalSeconds);
     this.scheduler.stop();
     if (this.run) {
       const run = this.run;
@@ -263,7 +330,7 @@ export class SimulationEngine {
         this.upsertCheckpoint(run, 'ended');
       });
     }
-    this.run = this.createNewRun(checkedSeed);
+    this.run = this.createNewRun(checkedSeed, undefined, record);
     this.status = 'paused';
   }
 
@@ -272,7 +339,8 @@ export class SimulationEngine {
       throw new EngineError(400, 'VALIDATION_ERROR', 'speed must be one of 1, 2, 10, 60, 100, 1000', 'speed');
     }
     if (speed === this.speed) return;
-    this.scheduler.setSpeed(speed);
+    // During an advance the scheduler runs at the advance pace; the user speed applies afterwards.
+    if (!this.advance) this.scheduler.setSpeed(speed);
     this.speed = speed;
     if (this.run) {
       this.run.seq++;
@@ -283,10 +351,45 @@ export class SimulationEngine {
   /** Stops the loop and checkpoints (including the partial accumulator). Status is recovered as paused. */
   shutdown(): void {
     this.scheduler.stop();
+    this.endAdvanceState('interrupted');
     if (this.run) {
       this.writeCheckpoint();
       this.status = 'paused';
     }
+  }
+
+  /** Scheduler callback: plain stepping, or — during an advance — never beyond the target, then pause. */
+  private scheduledSteps(n: number): void {
+    const adv = this.advance;
+    if (!adv) {
+      this.advanceSteps(n);
+      return;
+    }
+    const run = this.requireRun();
+    const remaining = Math.max(0, (adv.target_epoch - run.simEpoch) / STEP_SECONDS);
+    this.advanceSteps(Math.min(n, remaining));
+    if (run.simEpoch >= adv.target_epoch) this.finishAdvance('completed');
+  }
+
+  private finishAdvance(outcome: AdvanceResult['outcome']): void {
+    this.scheduler.stop();
+    this.endAdvanceState(outcome);
+    this.status = 'paused';
+    if (this.run) {
+      this.run.seq++;
+      this.writeCheckpoint();
+    }
+  }
+
+  private endAdvanceState(outcome: AdvanceResult['outcome']): void {
+    if (!this.advance) return;
+    this.lastAdvance = { ...this.advance, outcome, end_epoch: this.run?.simEpoch ?? this.advance.start_epoch };
+    this.advance = null;
+    this.scheduler.setSpeed(this.speed);
+  }
+
+  private noAdvance(what: string): void {
+    if (this.advance) throw new EngineError(409, 'CONFLICT', `${what} is not available while an advance is in progress; stop it first`);
   }
 
   // ------------------------------------------------------------------ commands
@@ -385,7 +488,7 @@ export class SimulationEngine {
     const rules = validateCalendar(cmd);
     if (!run.officeHours) throw new EngineError(409, 'CONFLICT', 'The current run has no office_hours policy to update');
     const ohId = run.officeHours.policy_id;
-    const effective = nextMinute(run.simEpoch);
+    const effective = nextBoundary(run.simEpoch, run.recordSeconds);
     const effectiveUtc = toUtc(effective);
     const wall = this.wallClock();
 
@@ -430,10 +533,11 @@ export class SimulationEngine {
     if (!this.batch) throw new EngineError(409, 'CONFLICT', 'createBatchRun requires a batch-mode engine');
     if (this.run) throw new EngineError(409, 'CONFLICT', 'This batch engine already owns a run');
     const start = toEpoch(input.startUtc);
-    if (!Number.isFinite(start) || start % INTERVAL_SECONDS !== 0) {
-      throw new EngineError(400, 'VALIDATION_ERROR', 'batch start must be a minute-aligned UTC instant', 'from');
+    const record = input.recordSeconds ?? INTERVAL_SECONDS;
+    if (!Number.isFinite(start) || !isBoundary(start, record)) {
+      throw new EngineError(400, 'VALIDATION_ERROR', `batch start must lie on a local ${record} s recording boundary`, 'from');
     }
-    this.run = this.createNewRun(this.checkSeed(input.seed), input);
+    this.run = this.createNewRun(this.checkSeed(input.seed), input, record);
     this.status = 'paused';
     return this.run.run_id;
   }
@@ -473,8 +577,9 @@ export class SimulationEngine {
     run.partial.covered_seconds += STEP_SECONDS;
     run.simEpoch += STEP_SECONDS;
     run.seq++;
-    if (run.simEpoch % INTERVAL_SECONDS === 0) {
-      // Minute boundary: publish the completed minute (old policy refs), then
+    if (isBoundary(run.simEpoch, run.recordSeconds)) {
+      // Recording boundary (local minute or local hour): publish the completed
+      // interval (old policy refs), then
       // apply due policy changes, then occupancy for the new time — atomically.
       transaction(this.db, () => {
         this.publishPartial(run, false);
@@ -644,6 +749,8 @@ export class SimulationEngine {
       overrides: run.devices.filter((d) => d.override).map((d) => ({ device_id: d.device_id, on: d.override!.on })),
       pending_changes: run.pending.map((p) => ({ kind: p.kind, effective_sim_utc: toUtc(p.effective_epoch), policy_refs: p.refs.map(refString) })),
       partial_interval: { start_utc: toUtc(run.partial.start_epoch), covered_seconds: run.partial.covered_seconds },
+      recording_interval_seconds: run.recordSeconds,
+      advance: this.advanceView(run),
     };
   }
 
@@ -671,6 +778,26 @@ export class SimulationEngine {
     return this.run;
   }
 
+  private advanceView(run: RunRuntime): Record<string, unknown> {
+    const view = (a: AdvanceState, processedEpoch: number): Record<string, unknown> => {
+      const expected = (a.target_epoch - a.start_epoch) / STEP_SECONDS;
+      const processed = (processedEpoch - a.start_epoch) / STEP_SECONDS;
+      return {
+        requested_days: a.requested_days, start_sim_utc: toUtc(a.start_epoch), target_sim_utc: toUtc(a.target_epoch),
+        processed_steps: processed, expected_steps: expected, fraction: processed / expected,
+      };
+    };
+    if (this.advance) return { active: true, ...view(this.advance, run.simEpoch), last: null };
+    const last = this.lastAdvance;
+    return { active: false, last: last ? { ...view(last, last.end_epoch), outcome: last.outcome, end_sim_utc: toUtc(last.end_epoch) } : null };
+  }
+
+  private checkInterval(v: unknown): RecordingInterval {
+    if (v === undefined) return INTERVAL_SECONDS;
+    if (!isRecordingInterval(v)) throw new EngineError(400, 'VALIDATION_ERROR', 'interval_seconds must be 60 or 3600', 'interval_seconds');
+    return v;
+  }
+
   private checkSeed(seed: unknown): number | undefined {
     if (seed === undefined) return undefined;
     if (!isSeed(seed)) throw new EngineError(400, 'VALIDATION_ERROR', 'seed must be an integer from 0 to 4294967295', 'seed');
@@ -689,7 +816,7 @@ export class SimulationEngine {
     if (this.batch) throw new EngineError(409, 'CONFLICT', `${what} is not available on a history-batch engine`);
   }
 
-  private createNewRun(seed?: number, batch?: BatchRunInput): RunRuntime {
+  private createNewRun(seed?: number, batch?: BatchRunInput, record: RecordingInterval = INTERVAL_SECONDS): RunRuntime {
     const building = this.db.prepare('SELECT building_id FROM buildings ORDER BY building_id LIMIT 1').get() as { building_id: string } | undefined;
     if (!building) throw new EngineError(409, 'CONFLICT', 'Inventory is not seeded; run npm run db:seed');
     const missing = this.db.prepare(`SELECT d.device_id FROM devices d JOIN rooms r ON r.room_id = d.room_id
@@ -705,7 +832,8 @@ export class SimulationEngine {
     createRun(this.db, {
       run_id: runId, building_id: building.building_id, scenario_id: 'original', run_start_utc: startUtc,
       config: {
-        ...RUN_CONFIG, occupancy_seed: occupancySeed,
+        // interval_seconds keeps RUN_CONFIG's key position; 60 s runs are byte-identical to before.
+        ...RUN_CONFIG, interval_seconds: record, occupancy_seed: occupancySeed,
         ...(batch ? { ...batch.config, initial_sim_time_utc: startUtc } : {}),
       } as unknown as Record<string, unknown>,
     }, wall);
@@ -730,7 +858,13 @@ export class SimulationEngine {
     const cfg = JSON.parse((this.db.prepare('SELECT config FROM simulation_runs WHERE run_id = ?').get(runId) as { config: string }).config) as {
       environment?: { avg_temp_c?: number; avg_rh_pct?: number };
       occupancy_seed?: number;
+      interval_seconds?: number;
     };
+    // Runs created before K004-FAST1 carry 60 (or nothing): their interval never changes.
+    const recordSeconds = cfg.interval_seconds ?? INTERVAL_SECONDS;
+    if (!isRecordingInterval(recordSeconds)) {
+      throw new EngineError(409, 'CONFLICT', `Run ${runId} has unsupported recording interval ${String(recordSeconds)} s`);
+    }
     const rooms = (this.db.prepare('SELECT room_id, room_type, capacity FROM run_rooms WHERE run_id = ? ORDER BY room_id').all(runId) as {
       room_id: string; room_type: string; capacity: number;
     }[]).map((r): RoomRuntime => ({
@@ -759,6 +893,7 @@ export class SimulationEngine {
       officeHours: null,
       occupancyPolicy: null,
       pending: state?.pending ?? [],
+      recordSeconds,
     };
     this.rebuildPolicies(run);
 

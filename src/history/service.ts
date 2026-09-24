@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { utcNow } from '../db/clock.js';
 import { type Database, transaction } from '../db/connection.js';
-import { INTERVAL_SECONDS, STEP_SECONDS } from '../engine/constants.js';
+import { type RecordingInterval, STEP_SECONDS } from '../engine/constants.js';
 import { SimulationEngine } from '../engine/engine.js';
 import { ApiError } from '../http/errors.js';
 import { type HistoryRequest, validateHistoryRequest } from './request.js';
@@ -153,7 +153,7 @@ export class HistoryJobService {
         // Runs inside each published minute's transaction: progress == committed readings.
         onCommit: ({ run_id, sim_time_utc }) => {
           const elapsed = epochOf(sim_time_utc) - start;
-          progress.run(run_id, sim_time_utc, elapsed / STEP_SECONDS, Math.floor(elapsed / INTERVAL_SECONDS), job.job_id);
+          progress.run(run_id, sim_time_utc, elapsed / STEP_SECONDS, Math.floor(elapsed / job.interval_seconds), job.job_id);
         },
       },
     });
@@ -162,12 +162,13 @@ export class HistoryJobService {
       engine.createBatchRun({
         startUtc: job.from_utc,
         seed: job.seed,
+        recordSeconds: job.interval_seconds as RecordingInterval,
         ...(req.occupancy ? { occupancy: req.occupancy } : {}),
         config: {
           run_purpose: RUN_PURPOSE,
           history_job_id: job.job_id,
           synthetic: true,
-          generator: 'K005-PREP batch history (shared SimulationEngine.advanceSteps; 10 s steps, 60 s intervals)',
+          generator: `K005-PREP batch history (shared SimulationEngine.advanceSteps; 10 s steps, ${job.interval_seconds} s recording)`,
           requested_window: { from_utc: job.from_utc, to_utc: job.to_utc, interval_seconds: job.interval_seconds, month: req.month },
           seed_source: req.seed_source,
           occupancy_runtime: req.occupancy,
