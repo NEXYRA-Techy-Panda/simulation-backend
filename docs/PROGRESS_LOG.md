@@ -413,3 +413,81 @@ correction entry; do not rewrite history.
 - Related: energy-ml-service P010 deterministic analyze pushed at 36f5832; it
   rejects intervals whose policy effective_from is after the interval start.
 - Next action: commit + push docs; remaining simulator work → Kishore Kumar.
+
+---
+
+## 2026-09-24 22:50:00 +05:30 (IST) — K001 / K0 completed (actual, Agent K — Kishore's coding agent)
+
+- Layer ID: K001 (previously issued as P018; renamed to K001 before execution —
+  no P018 record existed in this repo, so no history was rewritten). Layer K0 —
+  Setup and onboarding. Owner: Kishore Kumar. Docs/setup only: no source,
+  migration, contract, schema, seed or lockfile change.
+- Startup: no AGENTS.md; target folder was already the correct repository, so
+  it was reused (not re-cloned); origin verified; `main` clean at
+  `12c3800` == reported P010 handoff baseline == `origin/main`; fetch clean;
+  repo-local identity is Kishore's (`Kishorekumar5567`), not Mohan's. Parent
+  folder (this laptop) contains all five repos; the three Mohan-owned ones
+  were not touched.
+- Environment (this laptop): Windows 11 build 26200, Git Bash, git
+  2.55.0.windows.4, node v24.19.0, npm 11.17.0, `node:sqlite` present
+  (DatabaseSync/StatementSync/Session/constants/backup), ports 3000/4000 free.
+  Node 24 satisfies `engines: >=24.0.0` and `.nvmrc`; no dependency upgrade and
+  no lockfile regeneration. `npm ci` clean (0 vulnerabilities); npm 11 blocked
+  the esbuild postinstall (`allow-scripts`) but `tsx` v4.23.15 works.
+- Database: `data/` did not exist before this task. `npm run db:setup` run
+  twice → 1st applied migrations 1,2 (schema v2) and seeded 1 building / 5
+  rooms / 18 devices / 20 policies / 20 versions; 2nd inserted 0 with totals
+  unchanged → idempotent, non-destructive. All mutations used separate scratch
+  databases in the OS temp area (`…\Temp\nexyra-k001\scratch.sqlite`,
+  `scratch-defect.sqlite`); the dev database was not mutated and no SQLite file
+  was committed.
+- Baseline checks (actual): `validate:schema` 24/24 exit 0; `typecheck` exit 0;
+  `lint` exit 0; `npm test` **56/56** exit 0; `npm run build` exit 0.
+  **MISMATCH:** `verify:contract` → **67 passed, 8 failed (exit 1)**, all eight
+  being manifest `hash match:` failures. Cause proven: `core.autocrlf=true`
+  with no `.gitattributes` checked LF blobs out as CRLF while the verifier
+  hashes raw bytes (`scripts/verify-contract.mjs:41`); LF-normalised hashes
+  reproduce the manifest values exactly. Contract content is correct; it is a
+  clone/line-ending condition, reported and NOT fixed in K001.
+- Live HTTP (compiled build + scratch DB, port 4000): health 200
+  `not_initialized` with `Access-Control-Allow-Origin: http://localhost:3000`;
+  inventory 5 rooms / 18 devices / 20 policies (workstation qty 8 @ 960 W not
+  multiplied, fridge always_on); state before a run has nulls/empties with no
+  invented zeros; `start {speed:60}` → seq 1 at `2025-12-31T18:30:00Z`; time
+  advanced to `18:32:10Z`; pause froze time (two reads identical at
+  `18:32:30Z`, seq 17); resume `{speed:10}` then speed `{speed:1000}`;
+  light override on → 72 W `control_source override`, `clear_override` →
+  `override null`, `control_source policy`; `reset` → new run id, seq 0,
+  paused, previous run preserved in the database (lifecycle `ended`, seq 144,
+  414 device + 115 room intervals incl. 18 `partial=1`, Σ 0.07733 kWh) while
+  the new run stayed `active` seq 0; restart recovered the new run **paused**;
+  IPC `"shutdown"` → `engine stopped and checkpointed` → `database closed`,
+  **exit 0**; CORS preflight for a frontend POST → 204 with the right
+  allow-origin/methods/headers. No process left running; ports free.
+- Open defect LOCATED and REPRODUCED (not fixed, per assignment): after a
+  calendar change in run A at `2025-12-31T19:34:00Z`, `reset` created run B
+  starting `2025-12-31T18:30:00Z` which pinned and immediately applied
+  `pol-office-hours:2` (+11 device-schedule v2 versions) although their
+  `effective_from_utc` is 64 minutes later; all 72 of run B's persisted minutes
+  reference `…:2` refs and run B pins no v1. Source: `src/engine/engine.ts:351-371`
+  (`setCalendar`, effective = next minute of the run's own timeline),
+  `src/db/runs.ts:20`/`:42-47` (`createRun` pins `current_policy_versions`
+  with no run-relative baseline), `src/engine/engine.ts:630`/`:642-646`,
+  `src/engine/constants.ts:13`, `src/db/inventory.ts:99`,
+  `src/db/migrations/001_initial.ts:84`.
+- Browser verification: NOT performed (no browser ability in session). CORS was
+  verified server-side for a real GET and a POST preflight; a manual browser
+  checklist is recorded in the K001 evidence document.
+- Files changed: created `docs/K001_KISHORE_ONBOARDING_EVIDENCE.md`; updated
+  `docs/HANDOFF.md`, `docs/ACTIVE_TASK.md`, this log. `data/` created locally
+  and git-ignored. No source/contract change.
+- Unresolved items: contract verifier 67/75 on this laptop (line endings);
+  run-policy timing defect (open, required before historical-export
+  acceptance); OS SIGINT/SIGTERM shutdown not exercised (IPC path verified);
+  no browser confirmation of the P008 state additions.
+- Review status: pending (no self-assigned approval). Commit references: the
+  K001 commit recorded in the K001 return report after push.
+- Next action: implement the run-policy timing correction (KISHORE_BACKEND_HANDOFF.md
+  §6 / K001 evidence §11) as the next assigned K-layer, with the January-1-after-
+  a-schedule-change regression test. Do not start Socket.IO, exports, comfort or
+  other features until assigned.

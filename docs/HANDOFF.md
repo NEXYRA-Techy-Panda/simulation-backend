@@ -2,11 +2,17 @@
 
 ## 0. Continuity and current layer (F0.1, 2026-09-24)
 
-- Current layer: **P010 / F6-S documentation** (backend handoff to Kishore
-  Kumar) — documentation completed, review **pending**. P008 occupancy/schedule
-  behaviour accepted based on supplied evidence; run-policy timing defect
-  remains open. F6 foundation handoff NOT complete (frontend completion and
-  export/import integration remain separate). Contract: **1.0.1 defined** (canonical
+- Current layer: **K001 / K0 — setup and onboarding** (Agent K — Kishore's
+  coding agent) — status **completed**, review **pending**. Kishore's laptop
+  workspace, handoff and baseline were verified end-to-end; no application
+  source, migration, contract or seed was changed. The open run-policy timing
+  defect was located, reproduced and recorded (**not** fixed). F6 foundation
+  handoff still NOT complete (frontend completion and export/import
+  integration remain separate). Note for Windows clones with
+  `core.autocrlf=true`: the contract verifier reports **67/75** — the 8
+  failures are manifest byte-hash line-ending mismatches, not semantic
+  failures (K001 addendum below and
+  [K001 evidence §8](K001_KISHORE_ONBOARDING_EVIDENCE.md)). Contract: **1.0.1 defined** (canonical
   `simulation-backend/contracts/v1/`, mirrored to siblings; replaces the
   unaccepted 1.0.0 prototype, no backward compatibility claimed).
 - Continuity files: [ACTIVE_TASK.md](ACTIVE_TASK.md) and [PROGRESS_LOG.md](PROGRESS_LOG.md).
@@ -153,6 +159,37 @@
   Remaining simulator work (run-policy timing correction, Socket.IO,
   environment/comfort, history + exports, faults, matched original/improved,
   frontend integration) belongs to Kishore Kumar. No source changed.
+- K001 addendum (2026-09-24, Agent K — Kishore's coding agent, setup/onboarding
+  only, review **pending**; prompted as P018, renamed K001 before it ran — no
+  P018 record existed, so no history was rewritten): reused the existing clone
+  on Kishore's laptop (`main` at `12c3800` == the reported P010 baseline ==
+  `origin/main`, clean tree, fetch clean, repo-local identity Kishore's, not
+  Mohan's). Toolchain: Windows 11 build 26200 in Git Bash, git
+  `2.55.0.windows.4`, node `v24.19.0`, npm `11.17.0`, `node:sqlite` present,
+  ports 3000/4000 free; `npm ci` clean (0 vulnerabilities; npm 11 blocked the
+  esbuild postinstall but `tsx` works). Database: `data/` did not exist;
+  `npm run db:setup` twice → migrations 1,2 and schema v2, seeded 1 building /
+  5 rooms / 18 devices / 20 policies / 20 versions, second run inserted 0 →
+  idempotent and non-destructive; all mutations used scratch databases in the
+  OS temp area, never the dev database. Checks: `validate:schema` 24/24,
+  `typecheck` 0, `lint` 0, `npm test` **56/56**, `npm run build` 0,
+  `verify:contract` **67 passed / 8 failed (exit 1)** — all eight are manifest
+  `hash match:` failures caused by `core.autocrlf=true` (no `.gitattributes`)
+  while the verifier hashes raw bytes (diagnosed and remediated options in the
+  K001 evidence §8; deliberately not changed in a setup task). Live HTTP on a
+  scratch database: health 200 (CORS header correct), inventory 5 rooms / 18
+  devices / 20 policies, no-run state has nulls with **no invented zeros**,
+  `start`/`pause` (time genuinely frozen)/`resume`/`speed`, lighting override
+  on (72 W, `control_source override`) then `clear_override` (policy state),
+  `reset` → new run while the previous run stayed `ended` with its 414 device
+  and 115 room intervals (18 `partial=1`) preserved, restart recovery
+  **paused**, IPC shutdown **exit 0**, POST preflight **204**. Open defect
+  reproduced with concrete timestamps (`pol-office-hours:2` effective
+  `2025-12-31T19:34:00Z` applied by a run that starts `2025-12-31T18:30:00Z`,
+  and no v1 pin at all) — source anchors and full evidence in
+  [K001_KISHORE_ONBOARDING_EVIDENCE.md](K001_KISHORE_ONBOARDING_EVIDENCE.md).
+  Browser verification not performed (no browser in session); manual checklist
+  recorded there. No process left running; ports free.
 
 ## 1. Purpose and owner
 
