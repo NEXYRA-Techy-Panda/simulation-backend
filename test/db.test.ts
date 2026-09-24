@@ -63,13 +63,14 @@ describe('migrations', () => {
     withFileDb((path) => {
       const db = openDatabase(path);
       try {
-        // K002 adds migration 3 (run-scoped policy activation).
-        assert.deepEqual(runMigrations(db), { applied: [1, 2, 3], currentVersion: 3 });
-        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 3 });
+        // K002 adds migration 3 (run-scoped policy activation); K005-PREP adds branch-local migration 4 (history jobs).
+        assert.deepEqual(runMigrations(db), { applied: [1, 2, 3, 4], currentVersion: 4 });
+        assert.deepEqual(runMigrations(db), { applied: [], currentVersion: 4 });
         const tables = (db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name").all() as { name: string }[])
           .map((r) => r.name);
         for (const t of ['buildings', 'rooms', 'devices', 'policies', 'policy_versions', 'simulation_runs', 'run_rooms',
-          'run_devices', 'run_policies', 'room_intervals', 'device_intervals', 'schema_migrations', 'engine_checkpoints']) {
+          'run_devices', 'run_policies', 'room_intervals', 'device_intervals', 'schema_migrations', 'engine_checkpoints',
+          'history_jobs']) {
           assert.ok(tables.includes(t), `missing table ${t}`);
         }
         const history = db.prepare('SELECT version, name, checksum FROM schema_migrations').all();

@@ -338,6 +338,10 @@ describe('K002 pre-existing runs', () => {
       // migration 3 to it for real.
       runMigrations(db, migrations);
       seedDemoInventory(db);
+      // K005-PREP: also undo branch-local migration 4 (history jobs) so the file is a v2 database.
+      db.exec(`DROP TRIGGER engine_checkpoints_not_history_run;
+        DROP TABLE history_jobs;
+        DELETE FROM schema_migrations WHERE version = 4;`);
       db.exec(`DROP TRIGGER run_policies_activation_required;
         ALTER TABLE run_policies DROP COLUMN active_from_utc;
         DELETE FROM schema_migrations WHERE version = 3;`);
@@ -382,7 +386,7 @@ describe('K002 pre-existing runs', () => {
 
       // Upgrade to the current schema.
       const result = runMigrations(db);
-      assert.deepEqual(result, { applied: [3], currentVersion: 3 });
+      assert.deepEqual(result, { applied: [3, 4], currentVersion: 4 }); // 4: K005-PREP branch-local history jobs
 
       // Both runs are identified as pre-K002 (no activation recorded) ...
       assert.equal(activationMode(db, 'run-legacy-bad'), 'legacy_unrecorded');

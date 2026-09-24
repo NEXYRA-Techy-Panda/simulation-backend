@@ -576,3 +576,41 @@ correction entry; do not rewrite history.
   activation (contract CSV/JSON), then validate a run's dataset against
   `energy-ml-service` `POST /v1/analyze`. Do not start Socket.IO, environment/
   comfort, faults or other features until assigned.
+
+---
+
+## 2026-09-25 02:35 +05:30 (IST) — K005-PREP started (branch `mohan/k005-history-prep`)
+
+- Developer Mohan | M-C — Claude Code. Isolated worktree
+  `K:/simulation-backend-k005` from `main` `929e78e` (== origin/main by
+  ls-remote). Kishore's `main` working copy untouched.
+- Context read: README, PROJECT_CONTEXT, WORKSPACE_MAP, HANDOFF,
+  KISHORE_BACKEND_HANDOFF, SIMULATION_ENGINE, ACTIVE_TASK, this log,
+  contracts/v1 CONTRACT/API; source for engine, runs, migrations, occupancy,
+  schedule, scheduler, routes, tests. No AGENTS.md. No existing
+  history/export implementation (routes: health, inventory, state, control,
+  occupancy, calendar, devices).
+- Previous outcome preserved in ACTIVE_TASK (K002 completed, review pending).
+
+---
+
+## 2026-09-25 03:15 +05:30 (IST) — K005-PREP implementation group 1 (engine batch mode, jobs, routes, tests)
+
+- Branch-local migration `004_history_jobs` (history_jobs table; terminal rows
+  final; trigger forbids an engine checkpoint for a batch run).
+- `SimulationEngine` batch mode (`EngineOptions.batch`, `createBatchRun`):
+  same `advanceSteps`/`stepOnce`; checkpoint redirected to a per-minute job
+  progress update in the same transaction; interactive lifecycle and
+  global-policy commands refused. Interactive config unchanged.
+- `src/history/request.ts` (validation, Asia/Kolkata month windows),
+  `src/history/service.ts` (one worker, bounded queue, chunked + yielding,
+  verify-then-succeed, JOB_FAILED / JOB_INTERRUPTED), `src/routes/historyJobs.ts`
+  (not mounted in app.ts — documented step).
+- Existing tests adjusted only for the new migration number (db.test,
+  policyTiming legacy rollback). Two runner defects found by the new tests and
+  fixed before commit: a submit/settle race that could strand a queued job, and
+  same-second FIFO ordering (now rowid).
+- Checks: 79/79 tests (all files except `shutdown.test.ts`, blocked by VS Code
+  holding port 19001), typecheck, lint, build clean, verify:contract 75/75,
+  validate:schema pass.
+- Next: representative month generation + evidence + docs.

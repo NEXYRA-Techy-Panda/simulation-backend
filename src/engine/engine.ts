@@ -129,6 +129,29 @@ export interface EngineOptions {
   scheduler?: SchedulerOptions;
   /** Wall-clock source for record bookkeeping (created_utc etc.). */
   wallClock?: () => Date;
+  /**
+   * K005-PREP batch mode. The engine then drives exactly one history-batch run
+   * (createBatchRun + advanceSteps, the same deterministic step code as the
+   * interactive run). Its checkpoint goes to `onCommit` — called inside each
+   * published minute's transaction — and never to engine_checkpoints, so the
+   * interactive recovery can never pick it up. Interactive lifecycle calls and
+   * commands that mint global policy revisions are refused.
+   */
+  batch?: BatchHooks;
+}
+
+export interface BatchHooks {
+  onCommit(progress: { run_id: string; sim_time_utc: string; seq: number }): void;
+}
+
+export interface BatchRunInput {
+  /** Minute-aligned UTC start; the run's clock, run_start_utc and policy activation all begin here. */
+  startUtc: string;
+  seed: number;
+  /** Extra immutable run-config entries (purpose, job id, provenance). */
+  config: Record<string, unknown>;
+  /** Runtime occupancy for the pinned occupancy mode (no policy revision is minted). */
+  occupancy?: { mode: OccupancyMode; count: number };
 }
 
 const toEpoch = (utc: string): number => Date.parse(utc) / 1000;
@@ -154,9 +177,11 @@ export class SimulationEngine {
   private run: RunRuntime | null = null;
   readonly scheduler: WallClockScheduler;
   private readonly wallClock: () => Date;
+  private readonly batch: BatchHooks | null;
 
   constructor(private readonly db: Database, options: EngineOptions = {}) {
     this.wallClock = options.wallClock ?? (() => new Date());
+    this.batch = options.batch ?? null;
     this.scheduler = new WallClockScheduler(
       (steps) => this.advanceSteps(steps),
       this.speed,
@@ -181,6 +206,7 @@ export class SimulationEngine {
 
   /** Loads the most recent active run (if any) as PAUSED. Downtime never advances simulated time. */
   recover(): { run_id: string; sim_time_utc: string; seq: number } | null {
+    this.interactiveOnly('recover');
     const row = this.db.prepare(`SELECT run_id, seq, sim_time_utc, speed, state FROM engine_checkpoints
         WHERE lifecycle = 'active'`).get() as { run_id: string; seq: number; sim_time_utc: string; speed: number; state: string } | undefined;
     if (!row) return null;
@@ -193,6 +219,7 @@ export class SimulationEngine {
 
   /** not_initialized → new run, running; paused → running; running → no-op (no second timer). */
   start(speed?: unknown, seed?: unknown): void {
+    this.interactiveOnly('start');
     if (seed !== undefined && this.run) {
       throw new EngineError(409, 'CONFLICT', 'seed only applies when a run is created; use reset with a seed', 'seed');
     }
@@ -204,6 +231,7 @@ export class SimulationEngine {
 
   /** paused → running; running → no-op; no run → 409. */
   resume(speed?: unknown): void {
+    this.interactiveOnly('resume');
     if (!this.run) throw new EngineError(409, 'CONFLICT', 'No simulation run exists; use start');
     if (speed !== undefined) this.setSpeed(speed);
     this.goRunning();
@@ -225,6 +253,7 @@ export class SimulationEngine {
    * initial time with seq 0, paused. Old runs and their readings are kept.
    */
   reset(seed?: unknown): void {
+    this.interactiveOnly('reset');
     const checkedSeed = this.checkSeed(seed);
     this.scheduler.stop();
     if (this.run) {
@@ -269,6 +298,7 @@ export class SimulationEngine {
    * "switch" control whose policy allows manual override.
    */
   commandDevice(deviceId: string, command: DeviceCommand): Record<string, unknown> {
+    this.interactiveOnly('device command');
     const run = this.requireRun();
     const device = run.devices.find((d) => d.device_id === deviceId);
     if (!device) throw new EngineError(404, 'NOT_FOUND', `Device "${deviceId}" is not part of the current run`);
@@ -296,6 +326,7 @@ export class SimulationEngine {
    * mode change also appends an immutable occupancy-policy version.
    */
   setOccupancy(cmd: OccupancyCommand): Record<string, unknown> {
+    this.interactiveOnly('occupancy command');
     const run = this.requireRun();
     const mode = cmd.mode;
     if (mode !== 'manual' && mode !== 'scheduled') {
@@ -349,6 +380,7 @@ export class SimulationEngine {
    * exactly on one), so every persisted interval has one policy reference.
    */
   setCalendar(cmd: CalendarCommand): Record<string, unknown> {
+    this.interactiveOnly('calendar command');
     const run = this.requireRun();
     const rules = validateCalendar(cmd);
     if (!run.officeHours) throw new EngineError(409, 'CONFLICT', 'The current run has no office_hours policy to update');
@@ -386,6 +418,24 @@ export class SimulationEngine {
       calendar: { working_days: rules.working_days_iso, open_local: rules.open_local, close_local: rules.close_local, overnight: rules.overnight },
       seq: run.seq,
     };
+  }
+
+  /**
+   * K005-PREP (batch mode only): creates this engine's single history-batch run
+   * starting at input.startUtc — snapshot, policy pins activated at that start,
+   * seeded occupancy — exactly as an interactive run is created, but at the
+   * requested instant. Nothing is relabelled afterwards.
+   */
+  createBatchRun(input: BatchRunInput): string {
+    if (!this.batch) throw new EngineError(409, 'CONFLICT', 'createBatchRun requires a batch-mode engine');
+    if (this.run) throw new EngineError(409, 'CONFLICT', 'This batch engine already owns a run');
+    const start = toEpoch(input.startUtc);
+    if (!Number.isFinite(start) || start % INTERVAL_SECONDS !== 0) {
+      throw new EngineError(400, 'VALIDATION_ERROR', 'batch start must be a minute-aligned UTC instant', 'from');
+    }
+    this.run = this.createNewRun(this.checkSeed(input.seed), input);
+    this.status = 'paused';
+    return this.run.run_id;
   }
 
   // ------------------------------------------------------- deterministic core
@@ -635,7 +685,11 @@ export class SimulationEngine {
     this.writeCheckpoint();
   }
 
-  private createNewRun(seed?: number): RunRuntime {
+  private interactiveOnly(what: string): void {
+    if (this.batch) throw new EngineError(409, 'CONFLICT', `${what} is not available on a history-batch engine`);
+  }
+
+  private createNewRun(seed?: number, batch?: BatchRunInput): RunRuntime {
     const building = this.db.prepare('SELECT building_id FROM buildings ORDER BY building_id LIMIT 1').get() as { building_id: string } | undefined;
     if (!building) throw new EngineError(409, 'CONFLICT', 'Inventory is not seeded; run npm run db:seed');
     const missing = this.db.prepare(`SELECT d.device_id FROM devices d JOIN rooms r ON r.room_id = d.room_id
@@ -647,11 +701,25 @@ export class SimulationEngine {
     const wall = this.wallClock();
     const runId = `run-${utcNow(wall).replace(/[-:]/g, '')}-${randomUUID().slice(0, 8)}`;
     const occupancySeed = seed ?? randomInt(0, 0x100000000);
+    const startUtc = batch?.startUtc ?? INITIAL_SIM_TIME_UTC;
     createRun(this.db, {
-      run_id: runId, building_id: building.building_id, scenario_id: 'original', run_start_utc: INITIAL_SIM_TIME_UTC,
-      config: { ...RUN_CONFIG, occupancy_seed: occupancySeed } as unknown as Record<string, unknown>,
+      run_id: runId, building_id: building.building_id, scenario_id: 'original', run_start_utc: startUtc,
+      config: {
+        ...RUN_CONFIG, occupancy_seed: occupancySeed,
+        ...(batch ? { ...batch.config, initial_sim_time_utc: startUtc } : {}),
+      } as unknown as Record<string, unknown>,
     }, wall);
-    const run = this.loadRun(runId, toEpoch(INITIAL_SIM_TIME_UTC), 0, null);
+    const run = this.loadRun(runId, toEpoch(startUtc), 0, null);
+    if (batch?.occupancy) {
+      // Runtime count only: the mode is the one pinned from the current policy
+      // revision, so no revision is minted (a mode change would be global).
+      if (batch.occupancy.mode !== run.occupancy.mode) {
+        throw new EngineError(409, 'CONFLICT', `occupancy mode "${batch.occupancy.mode}" differs from the pinned mode "${run.occupancy.mode}"`, 'occupancy.mode');
+      }
+      const count = run.occupancy.checkCount(batch.occupancy.count, batch.occupancy.mode === 'manual' ? 'occupancy.total' : 'occupancy.target');
+      if (batch.occupancy.mode === 'manual') run.occupancy.setManual(count);
+      else run.occupancy.setScheduled(count);
+    }
     this.reconcile(run);
     this.upsertCheckpoint(run, 'active');
     return run;
@@ -781,6 +849,11 @@ export class SimulationEngine {
   }
 
   private upsertCheckpoint(run: RunRuntime, lifecycle: 'active' | 'ended'): void {
+    if (this.batch) {
+      // Batch runs never touch engine_checkpoints (interactive recovery source).
+      this.batch.onCommit({ run_id: run.run_id, sim_time_utc: toUtc(run.simEpoch), seq: run.seq });
+      return;
+    }
     const state: CheckpointState = {
       format: 2,
       devices: Object.fromEntries(run.devices.map((d) => [d.device_id, { override: d.override, cumulative_kwh: d.cumulative_kwh }])),
