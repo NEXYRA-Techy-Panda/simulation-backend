@@ -11,6 +11,29 @@ export type Speed = (typeof SPEEDS)[number];
 export const isSpeed = (v: unknown): v is Speed => SPEEDS.includes(v as Speed);
 export const DEFAULT_SPEED: Speed = 1;
 
+/** One simulated day in the supported Asia/Kolkata simulation (86,400 s). */
+export const DAY_SECONDS = 86_400;
+
+/**
+ * K004-FAST1 recording intervals. A run's interval is part of its immutable
+ * configuration (default 60 s, exactly the historical behaviour); it never
+ * changes mid-run. 3600 s means each published interval covers one simulated
+ * hour of processed steps — never endpoint samples.
+ */
+export const RECORDING_INTERVALS = [60, 3600] as const;
+export type RecordingInterval = (typeof RECORDING_INTERVALS)[number];
+export const DEFAULT_RECORDING_INTERVAL: RecordingInterval = 60;
+export const isRecordInterval = (v: unknown): v is RecordingInterval =>
+  RECORDING_INTERVALS.includes(v as RecordingInterval);
+
+/**
+ * Day-advance bounds: 1..31 simulated days per request ("30 days" is a
+ * duration, not a calendar-month claim) and the bounded step chunk processed
+ * before yielding to serve HTTP between chunks.
+ */
+export const ADVANCE_MAX_DAYS = 31;
+export const ADVANCE_STEPS_PER_CHUNK = 600;
+
 /** 2026-01-01 00:00 Asia/Kolkata (UTC+05:30), stored as UTC. */
 export const INITIAL_SIM_TIME_UTC = '2025-12-31T18:30:00Z';
 
@@ -46,6 +69,15 @@ export const RUN_CONFIG = {
     note: 'Constant synthetic room climate; no thermal model yet.',
     avg_temp_c: 26.0,
     avg_rh_pct: 55.0,
+  },
+  /**
+   * K004-FAST1: reading interval recorded immutably per run. A stored run
+   * configuration without this object is a legacy run and keeps the
+   * historical one-minute behaviour.
+   */
+  recording: {
+    interval_seconds: 60,
+    note: 'Published interval length in simulated seconds; aggregates integrate every processed step.',
   },
   devices: {
     power_model: 'on => nominal_power_w (whole device/group); off => standby_power_w or 0. quantity is never multiplied in.',

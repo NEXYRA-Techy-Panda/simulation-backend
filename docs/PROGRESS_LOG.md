@@ -665,3 +665,53 @@ correction entry; do not rewrite history.
   carry `ac_power_model`/per-room climate; then merge (never force), push `main`
   normally and assign the frontend environment controls. Until that decision,
   keep the branch local.
+
+---
+
+## 2026-09-25 — K004-FAST1 started and stopped at a safe checkpoint (actual, Agent K-B — GLM-5.3)
+
+- Layer ID: K004-FAST1 (accelerated "Days" mode + hourly recording), Agent
+  K-B — GLM-5.3, developer Kishore Kumar. **Ownership transferred mid-task to
+  Mohan M-C — Claude Code at the owner's request; work stopped at a safe
+  checkpoint.** Review pending; nothing merged, pushed or deployed.
+- Worktree/branch: `../simulation-backend-k004`, branch `kishore/k004-fast1`
+  (created this task, stacked on `kishore/k004-environment-prep` at `13d59b6`;
+  ultimate base `929e78e`). The main working copy `simulation-backend` and all
+  sibling worktrees were never opened for write.
+- Implemented (backend): `src/engine/advance-days.ts` — `AdvanceDaysController`
+  (1–31 whole days, target = days × 86,400 simulated seconds, bounded 6000 s
+  chunks through the engine's own `advanceSteps()`, `sleep(0)` yields between
+  chunks, progress derived from processed `simEpoch`, synchronous
+  `requestStop()`, pause-at-end for target/stop/failure; nothing reset);
+  `src/engine/constants.ts` — `DAY_SECONDS`, `RECORDING_INTERVALS [60, 3600]`,
+  `DEFAULT_RECORDING_INTERVAL`, `ADVANCE_MAX_DAYS`, `ADVANCE_CHUNK_SECONDS`,
+  `RUN_CONFIG.recording`; `src/engine/engine.ts` — per-run immutable
+  `intervalSeconds` read from run config (missing/invalid ⇒ legacy 60 s),
+  interval-boundary publishing at `run.simEpoch % run.intervalSeconds`,
+  `setRecordingIntervalForNextRun`/`nextRecordingInterval` (NEW runs only),
+  the advance host wiring, concurrency guards (409 on
+  resume/speed/reset while advancing; `pause()` requests the advance stop),
+  and additive `GET /state` fields `recording_interval_seconds` + `advance`.
+- Deliberately reverted: a partially written policy-boundary split in
+  `publishPartial` (one interval must never carry two policy refs on an hourly
+  run). `publishPartial` is back at its exact `13d59b6` state; the successor
+  must implement this with a regression test before shipping hourly runs.
+- NOT started: routes (`/control/advance-days`, `/control/advance-stop`,
+  recording opt-in), command-responsiveness verification during advance,
+  focused tests, the measured 30-day hourly run, the frontend half (frontend
+  worktree branch `kishore/k004-fast1-ui` exists at base `cbafa41` with no
+  changes), K005 interface inspection. One day per second is a TARGET — not
+  demonstrated. Full continuation plan:
+  `docs/K004_FAST1_EVIDENCE.md` §§3 and 6.
+- Checks at checkpoint (this worktree): `npm run typecheck` 0;
+  `npm run lint` 0 errors/0 warnings; `npm test` **89/89 pass**;
+  `npm run build` 0. No HTTP server started, no port occupied, in-memory/temp
+  DBs only, **no task-owned process left running**.
+- Files changed: new `src/engine/advance-days.ts`,
+  `docs/K004_FAST1_EVIDENCE.md`; modified `src/engine/constants.ts`,
+  `src/engine/engine.ts`, `docs/ACTIVE_TASK.md`, `docs/HANDOFF.md`, this log.
+  Committed locally on `kishore/k004-fast1` immediately after this entry.
+- Next action (Mohan M-C — Claude Code): confirm the checkpoint commit, then
+  continue per `docs/K004_FAST1_EVIDENCE.md` §6 — publishPartial
+  policy-boundary splitting first, then routes, tests, the measured 30-day run,
+  and the frontend. Keep scratch DBs, keep main untouched, no merge/push.

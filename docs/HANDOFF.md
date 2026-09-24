@@ -1,5 +1,21 @@
 # HANDOFF — simulation-backend
 
+## K004-FAST1 handoff addendum (2026-09-25, Kishore | K-B — GLM-5.3 → Mohan M-C — Claude Code)
+
+- Day acceleration + hourly recording: **partial, stopped at a safe checkpoint
+  and transferred.** Branch `kishore/k004-fast1` in worktree
+  `../simulation-backend-k004`, stacked on `kishore/k004-environment-prep`
+  (`13d59b6`). Backend engine pieces implemented (chunked day-advance
+  controller, per-run immutable 60 s/3600 s recording interval with legacy
+  default, interval-boundary publishing, concurrency guards, additive state
+  fields). Routes, policy-boundary interval splitting, tests, the measured
+  30-day run and the entire frontend are NOT done. Continuation plan:
+  [K004_FAST1_EVIDENCE.md](K004_FAST1_EVIDENCE.md) §§3/6.
+- Checkpoint gates: typecheck 0, lint 0, build 0, tests 89/89 (pre-existing).
+  No server started, no port occupied, no task-owned process running. Not
+  merged, not pushed, not deployed. One day per second remains a target —
+  **not demonstrated**.
+
 ## K004-PREP2 addendum (branch-local; implemented, review pending; NOT merged/pushed/deployed)
 
 - **Branch/worktree**: `kishore/k004-environment-prep` in the separate worktree

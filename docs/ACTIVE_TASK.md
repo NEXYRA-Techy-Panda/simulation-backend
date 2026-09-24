@@ -1,6 +1,40 @@
 # ACTIVE_TASK — simulation-backend
 
-## Current task (branch-local) — K004-PREP2, above K004-PREP
+## Current task (branch-local) — K004-FAST1 (CHECKPOINT / HANDOFF)
+
+**Developer Kishore Kumar | Agent K-B — GLM-5.3.** Branch `kishore/k004-fast1`,
+worktree `../simulation-backend-k004`, stacked on `kishore/k004-environment-prep`
+(`13d59b6`); ultimate base `929e78e7b6b19bf586e131a6bc256e2b211e3bcf`. Status:
+**partial — stopped at a safe checkpoint and handed to Mohan M-C — Claude Code**;
+review pending; not merged, not pushed, not deployed.
+
+### State at handoff (2026-09-25)
+
+- Implemented: `src/engine/advance-days.ts` (chunked day-advance controller with
+  stop/pause and honest progress), per-run immutable recording interval
+  (60 s default; 3600 s opt-in for NEW runs) with legacy runs unchanged,
+  interval-boundary publishing (`run.intervalSeconds`), engine concurrency
+  guards (409 on resume/speed/reset during an advance; pause stops it), and
+  additive `GET /state` fields (`recording_interval_seconds`, `advance`).
+- **Not implemented** (successor's exact list, in order): policy-boundary
+  interval splitting in `publishPartial` (an edit was started and REVERTED —
+  `publishPartial` is at its `13d59b6` state); additive routes
+  `POST /control/advance-days`, `/control/advance-stop` and the recording
+  opt-in; command-responsiveness verification during advance; focused tests;
+  the measured 30-day hourly run; the entire frontend half; K005 interface
+  inspection. Full details and the continuation plan:
+  [K004_FAST1_EVIDENCE.md](K004_FAST1_EVIDENCE.md) §§3 and 6.
+- Verification at checkpoint: typecheck 0, lint 0, build 0, tests **89/89**
+  (pre-existing suites only; no new tests yet). No server started; no ports
+  touched; no task-owned process running.
+- Uncommitted at handoff: `src/engine/constants.ts`, `src/engine/engine.ts`
+  (modified), `src/engine/advance-days.ts` (new), plus this doc set — committed
+  by this task on the feature branch immediately after this checkpoint (commit
+  hash recorded in `docs/PROGRESS_LOG.md`).
+
+### Previous tasks (history preserved, not rewritten)
+
+## Current task (branch-local, previous) — K004-PREP2, above K004-PREP
 
 **Developer Kishore Kumar | Agent K-B — FreeBuff.** Branch
 `kishore/k004-environment-prep`, worktree `../simulation-backend-k004`, base

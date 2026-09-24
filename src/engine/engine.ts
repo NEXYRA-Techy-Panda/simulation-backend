@@ -9,8 +9,10 @@ import {
 } from '../environment/index.js';
 import { ApiError } from '../http/errors.js';
 import {
-  DEFAULT_SPEED, INITIAL_SIM_TIME_UTC, INTERVAL_SECONDS, RUN_CONFIG, type Speed, STEP_SECONDS, isSpeed,
+  DEFAULT_RECORDING_INTERVAL, DEFAULT_SPEED, INITIAL_SIM_TIME_UTC, INTERVAL_SECONDS, RUN_CONFIG, type RecordingInterval,
+  type Speed, STEP_SECONDS, isRecordInterval, isSpeed,
 } from './constants.js';
+import { AdvanceDaysController, type AdvanceProgress } from './advance-days.js';
 import { MAX_OCCUPANTS, OccupancyModel, type OccupancyMode, type OccupancyState } from './occupancy.js';
 import { isSeed } from './rng.js';
 import { type OfficeHoursRules, type ScheduleWindow, kolkataLocal, officeHoursWindow, scheduleWindowFor } from './schedule.js';
@@ -141,6 +143,8 @@ interface RunRuntime {
   rooms: RoomRuntime[];
   /** Configured run-level climate: the INITIAL per-room climate, not a reading or a summary. */
   environment: { avg_temp_c: number; avg_rh_pct: number };
+  /** Published interval length in simulated seconds (K004-FAST1); immutable per run. */
+  intervalSeconds: number;
   /** AC power model id recorded in the immutable run configuration; null = legacy flat model. */
   acPowerModelId: string | null;
   partial: PartialInterval;
@@ -180,6 +184,10 @@ export class SimulationEngine {
   private run: RunRuntime | null = null;
   readonly scheduler: WallClockScheduler;
   private readonly wallClock: () => Date;
+  /** K004-FAST1: single day-advance controller (one interactive run, one runner). */
+  readonly advance: AdvanceDaysController;
+  /** Recording interval applied to the NEXT created run; always the default otherwise. */
+  private pendingRecordingInterval: RecordingInterval = DEFAULT_RECORDING_INTERVAL;
 
   constructor(private readonly db: Database, options: EngineOptions = {}) {
     this.wallClock = options.wallClock ?? (() => new Date());
@@ -193,6 +201,12 @@ export class SimulationEngine {
       options.schedulerDeps,
       options.scheduler,
     );
+    this.advance = new AdvanceDaysController({
+      getRunEpochSeconds: () => (this.run ? { run_id: this.run.run_id, simEpoch: this.run.simEpoch } : null),
+      advanceSteps: (n) => this.advanceSteps(n),
+      pause: () => this.pause(),
+      simTimeUtc: () => (this.run ? toUtc(this.run.simEpoch) : null),
+    });
   }
 
   // ---------------------------------------------------------------- lifecycle
@@ -203,6 +217,24 @@ export class SimulationEngine {
 
   get currentSpeed(): Speed {
     return this.speed;
+  }
+
+  /**
+   * K004-FAST1: opts the NEXT created run into hourly (3600 s) published
+   * intervals. Existing runs are never changed: the interval is part of each
+   * run's immutable configuration, legacy runs default to one minute, and a
+   * run's resolution is never switched midway.
+   */
+  setRecordingIntervalForNextRun(interval: unknown): void {
+    if (!isRecordInterval(interval)) {
+      throw new EngineError(400, 'VALIDATION_ERROR', 'interval_seconds must be 60 or 3600', 'interval_seconds');
+    }
+    this.pendingRecordingInterval = interval;
+  }
+
+  /** The recording interval that the next created run will use. */
+  get nextRecordingInterval(): RecordingInterval {
+    return this.pendingRecordingInterval;
   }
 
   /** Loads the most recent active run (if any) as PAUSED. Downtime never advances simulated time. */
@@ -228,9 +260,17 @@ export class SimulationEngine {
     this.goRunning();
   }
 
-  /** paused → running; running → no-op; no run → 409. */
+  /**
+   * Starts the authoritative day-advance loop. Explicitly conflicts with the
+   * regular wall-clock scheduler: the advance is the runner while active, so a
+   * resume/start during an active advance is rejected rather than creating a
+   * competing timer for the same interactive run.
+   */
   resume(speed?: unknown): void {
     if (!this.run) throw new EngineError(409, 'CONFLICT', 'No simulation run exists; use start');
+    if (this.advance.active) {
+      throw new EngineError(409, 'CONFLICT', 'A day advance is active; stop it before resuming regular speed (POST /api/v1/control/advance-stop)');
+    }
     if (speed !== undefined) this.setSpeed(speed);
     this.goRunning();
   }
@@ -238,6 +278,7 @@ export class SimulationEngine {
   /** running → paused (freezes at the last processed step); paused → no-op; no run → 409. */
   pause(): void {
     if (!this.run) throw new EngineError(409, 'CONFLICT', 'No simulation run exists');
+    if (this.advance.active) this.advance.requestStop();
     if (this.status !== 'running') return;
     this.scheduler.stop();
     this.status = 'paused';
@@ -251,6 +292,10 @@ export class SimulationEngine {
    * initial time with seq 0, paused. Old runs and their readings are kept.
    */
   reset(seed?: unknown): void {
+    if (this.advance.active) {
+      throw new EngineError(409, 'CONFLICT',
+        'A day advance is active; stop it before resetting (POST /api/v1/control/advance-stop). Reset never runs as a side effect of an active advance.');
+    }
     const checkedSeed = this.checkSeed(seed);
     this.scheduler.stop();
     if (this.run) {
@@ -268,6 +313,9 @@ export class SimulationEngine {
     if (!isSpeed(speed)) {
       throw new EngineError(400, 'VALIDATION_ERROR', 'speed must be one of 1, 2, 10, 60, 100, 1000', 'speed');
     }
+    if (this.advance.active) {
+      throw new EngineError(409, 'CONFLICT', 'A day advance is active; speed commands are rejected until it completes or is stopped');
+    }
     if (speed === this.speed) return;
     this.scheduler.setSpeed(speed);
     this.speed = speed;
@@ -275,6 +323,29 @@ export class SimulationEngine {
       this.run.seq++;
       this.writeCheckpoint();
     }
+  }
+
+  /** Starts the authoritative day-advance run loop; conflicts surface as 409/400 envelopes. */
+  beginAdvanceDays(days: unknown): Promise<AdvanceProgress> {
+    this.requireRun();
+    this.advance.requestStop(); // an explicit new advance always supersedes a stale stop flag
+    return this.advance.begin(days);
+  }
+
+  /** Synchronous stop request for an active advance (freezes at the next chunk boundary). */
+  stopAdvance(): void {
+    this.advance.requestStop();
+  }
+
+  /** Progress snapshot computed from processed simulated time, or null without a run. */
+  advanceProgress(): AdvanceProgress | null {
+    if (!this.run) return null;
+    return this.advance.progress();
+  }
+
+  /** True while a day advance owns the run loop. */
+  get advanceActive(): boolean {
+    return this.advance.active;
   }
 
   /** Stops the loop and checkpoints (including the partial accumulator). Status is recovered as paused. */
@@ -460,7 +531,10 @@ export class SimulationEngine {
 
   // ------------------------------------------------------- deterministic core
 
-  /** Processes n fixed steps. Deterministic; used by the scheduler and by tests. */
+  /**
+   * Processes n fixed steps. Deterministic; used by the scheduler, the
+   * K004-FAST1 day-advance controller, and tests.
+   */
   advanceSteps(n: number): void {
     const run = this.requireRun();
     for (let i = 0; i < n; i++) this.stepOnce(run);
@@ -500,8 +574,8 @@ export class SimulationEngine {
     run.partial.covered_seconds += STEP_SECONDS;
     run.simEpoch += STEP_SECONDS;
     run.seq++;
-    if (run.simEpoch % INTERVAL_SECONDS === 0) {
-      // Minute boundary: publish the completed minute (old policy refs), then
+    if (run.simEpoch % run.intervalSeconds === 0) {
+      // Interval boundary: publish the completed interval (old policy refs), then
       // apply due policy changes, then occupancy for the new time — atomically.
       transaction(this.db, () => {
         this.publishPartial(run, false);
@@ -700,6 +774,10 @@ export class SimulationEngine {
       overrides: run.devices.filter((d) => d.override).map((d) => ({ device_id: d.device_id, on: d.override!.on })),
       pending_changes: run.pending.map((p) => ({ kind: p.kind, effective_sim_utc: toUtc(p.effective_epoch), policy_refs: p.refs.map(refString) })),
       partial_interval: { start_utc: toUtc(run.partial.start_epoch), covered_seconds: run.partial.covered_seconds },
+      /** K004-FAST1: this run's immutable published-interval length (60 s or 3600 s). */
+      recording_interval_seconds: run.intervalSeconds,
+      /** K004-FAST1 day-advance progress computed from processed simulated time; null when idle. */
+      advance: this.advanceProgress(),
     };
   }
 
@@ -733,6 +811,7 @@ export class SimulationEngine {
     return seed;
   }
 
+  /** Runs the simulated clock (regular scheduler) unless a day advance owns it. */
   private goRunning(): void {
     if (this.status === 'running' && this.scheduler.running) return;
     this.status = 'running';
@@ -755,7 +834,11 @@ export class SimulationEngine {
     const occupancySeed = seed ?? randomInt(0, 0x100000000);
     createRun(this.db, {
       run_id: runId, building_id: building.building_id, scenario_id: 'original', run_start_utc: INITIAL_SIM_TIME_UTC,
-      config: { ...RUN_CONFIG, occupancy_seed: occupancySeed } as unknown as Record<string, unknown>,
+      config: {
+        ...RUN_CONFIG,
+        occupancy_seed: occupancySeed,
+        recording: { ...RUN_CONFIG.recording, interval_seconds: this.pendingRecordingInterval },
+      } as unknown as Record<string, unknown>,
     }, wall);
     const run = this.loadRun(runId, toEpoch(INITIAL_SIM_TIME_UTC), 0, null);
     this.reconcile(run);
@@ -769,10 +852,16 @@ export class SimulationEngine {
       environment?: { avg_temp_c?: number; avg_rh_pct?: number };
       devices?: { ac_power_model?: string };
       occupancy_seed?: number;
+      recording?: { interval_seconds?: unknown };
     };
     // The recorded model id is part of the immutable run configuration: its
     // absence is what makes a persisted pre-integration run legacy.
     const acPowerModelId = cfg.devices?.ac_power_model ?? null;
+    // K004-FAST1: the published interval is immutable per run. A stored
+    // configuration without a valid `recording.interval_seconds` is a legacy
+    // run and keeps the historical one-minute behaviour.
+    const recordedInterval = cfg.recording?.interval_seconds;
+    const intervalSeconds = isRecordInterval(recordedInterval) ? recordedInterval : DEFAULT_RECORDING_INTERVAL;
     const environment = {
       avg_temp_c: cfg.environment?.avg_temp_c ?? RUN_CONFIG.environment.avg_temp_c,
       avg_rh_pct: cfg.environment?.avg_rh_pct ?? RUN_CONFIG.environment.avg_rh_pct,
@@ -799,6 +888,7 @@ export class SimulationEngine {
         cumulative_kwh: state?.devices[d.device_id]?.cumulative_kwh ?? 0,
       })),
       environment,
+      intervalSeconds,
       acPowerModelId,
       partial: { start_epoch: simEpoch, covered_seconds: 0, devices: {}, rooms: {} },
       occupancy: new OccupancyModel([], OccupancyModel.initial([], 0, 'manual')),
