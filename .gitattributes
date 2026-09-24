@@ -1,0 +1,22 @@
+# Contract checkout portability (K002, Agent K — Kishore's coding agent).
+#
+# Git stores the canonical contract blobs with LF endings. The verification
+# script hashes those files as RAW BYTES
+# (scripts/verify-contract.mjs: createHash('sha256').update(readFileSync(p))),
+# so a checkout that converts LF to CRLF — for example a Windows clone with
+# core.autocrlf=true — fails the manifest hash checks even though the contract
+# content is byte-identical apart from the line separator.
+#
+# Pinning LF for exactly the hashed paths makes checkout portable across
+# machines and platforms without touching contract semantics, the manifest,
+# or any verifier check. Attributes are per-path and override core.autocrlf
+# for these files only; no global Git configuration is changed and ordinary
+# source/documentation files are deliberately left to the default handling.
+#
+# This is repository checkout configuration, not a contract version change.
+# Mohan's three mirrored repositories (auditor-frontend, auditor-backend,
+# energy-ml-service) need the same two rules, since they mirror
+# scripts/verify-contract.mjs and contracts/v1/** identically.
+
+contracts/v1/** text eol=lf
+scripts/verify-contract.mjs text eol=lf
