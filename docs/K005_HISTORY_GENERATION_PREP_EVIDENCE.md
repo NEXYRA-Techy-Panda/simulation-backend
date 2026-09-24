@@ -194,3 +194,11 @@ The K002 test helper `test/runDataset.ts` shows the read model.
 - No resume of interrupted jobs.
 - `shutdown.test.ts` was not run on this laptop.
 - The production and public APIs were not called.
+
+## 12. Addendum — K004-FAST1 (2026-09-25)
+
+- History jobs now also accept `interval_seconds: 3600`: hourly aggregation of the same 10 s steps, with from/to on local-hour boundaries (UTC hh:30). Month windows are unchanged.
+- Branch-local migration **005** rebuilds `history_jobs` to allow 60 or 3600; 004 was not edited.
+- The run config's `interval_seconds` records each run's recording interval, and 60 s behaviour is unchanged. §3's "only 60" and §8's 60 s figures describe K005 as delivered.
+- Interactive "advance days" is a separate operation on the current run.
+- Details, tests and measurements: [K004_FAST1_TAKEOVER_EVIDENCE.md](K004_FAST1_TAKEOVER_EVIDENCE.md).

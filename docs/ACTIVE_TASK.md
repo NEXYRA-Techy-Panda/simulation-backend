@@ -1,105 +1,79 @@
 # ACTIVE_TASK — simulation-backend (branch `mohan/k005-history-prep`, worktree)
 
-> Branch-local continuity for the isolated worktree `K:/simulation-backend-k005`
-> on Mohan's laptop. Kishore's `main` working copy / laptop keeps its own
+> Branch-local continuity for the isolated worktree `K:\simulation-backend-k005`
+> on **Mohan's laptop**. Kishore's `main` working copy / laptop keeps its own
 > ACTIVE_TASK; this file does not describe it.
 
 ## Assignment / Layer ID
 
 **K004-FAST1 — takeover and K005 continuation** (fast-days mode + hourly
 recording). Developer **Mohan** | Agent **M-C — Claude Code**. Previous
-assignee: Kishore K-B — GLM-5.3. Status: **in_progress** (started
-2026-09-25 03:55 +05:30 IST).
-
-- GLM (K-B) work: **not available on this laptop** — the remote has only
-  `main` (`929e78e`); no K004 branch, bundle, worktree or handoff found locally.
-  Proceeding from the verified K005 branch; nothing of GLM's is reused.
-- Plan: per-run recording interval (60 | 3600, immutable run config);
-  interactive `POST /control/advance {days}` + `/control/advance/stop` on the
-  existing wall-clock scheduler (≈1 simulated day per real second); history
-  jobs accept `interval_seconds: 3600`; frontend fast-days component in an
-  isolated simulation-frontend worktree; Git bundles for transfer.
-
-## Previous assignment in this worktree — K005-PREP (preserved)
-
-
-K005-PREP — simulator monthly history generation (backend batch preparation).
-Developer **Mohan** | Agent **M-C — Claude Code**. Supporting simulator batch
-5 / approximately 8. K003/K004 integration remains pending (numbering does not
-imply those batches are finished).
-
-## Scope
-
-Exclusive write: this worktree only (`K:\simulation-backend-k005`, branch
-`mohan/k005-history-prep`). Batch-generation service + job orchestration using
-the committed engine; focused persistence (branch-local migration); separate
-history-job route module; tests; integration docs. **Not**: frontend, export,
-fault injection, Socket.IO, reporting, comparisons, AC model, app/server
-rewiring, merge, push or deployment.
+assignee: Kishore K-B — GLM-5.3.
 
 ## Task status
 
-completed (branch preparation only; not merged, pushed or deployed)
+completed (branch preparation; not merged, pushed or deployed)
 
 ## Review status
 
 pending (never self-assigned)
 
-## Previous task outcome (preserved, from `main` at `929e78e`)
+## Scope
 
-- **K002 (Kishore / K agent): completed, review pending.** LF portability and
-  run-scoped policy activation (`003_run_policy_activation`), commit
-  `26ba717`; `npm test` 61/61 at that time; export endpoint **not**
-  implemented; browser verification not performed; pre-K002 inconsistent runs
-  unsupported for export. Its recorded next action was the export endpoint
-  (K003, owned by Kishore K-A — not this task).
-- `929e78e` (mohan-madhu): fixed listener port 19001 (PORT ignored).
+This worktree and the frontend worktree `K:\simulation-frontend-fast1`
+(`mohan/k004-fast1-controls`). No merge into `main`, no push, no deployment,
+no edits to other agents' working copies.
 
-## Current branch
+## Takeover facts (Mohan's laptop)
 
-`mohan/k005-history-prep` created from `main`
-`929e78e7b6b19bf586e131a6bc256e2b211e3bcf` (== `origin/main` per `git ls-remote`
-at task start). Git identity: existing repo-local mohan-madhu (no global change).
+GLM (K-B) work is **not reachable here** (remote has only `main` `929e78e`; no
+K004 branch/bundle/worktree/handoff). Nothing of GLM's was reused; any GLM work
+must be reconciled on Kishore's laptop.
+
+## Previous task outcome (preserved)
+
+- **K005-PREP (M-C): completed, review pending** — batch history jobs on the
+  shared engine (`1975c8d`, `92aadd8`, `0464c9a`); evidence
+  [K005_HISTORY_GENERATION_PREP_EVIDENCE.md](K005_HISTORY_GENERATION_PREP_EVIDENCE.md).
+- **K002 (Kishore): completed, review pending** (from `main` `929e78e`).
+
+## Completed work (K004-FAST1)
+
+1. Per-run recording interval 60 | 3600 s in immutable run config; local-hour
+   aggregation of the same 10 s steps; calendar changes at the next recording
+   boundary; checkpoints at recording boundaries.
+2. `POST /control/advance {days 1..31}`, `POST /control/advance/stop` on the
+   existing scheduler (≈1 day/s), single runner per run, `state.advance`.
+3. Hourly history jobs; branch-local migration 005.
+4. Tests `test/fast.test.ts` 13/13; suite 92/92 (excl. shutdown.test.ts);
+   typecheck/lint/build; schema 24/24; contract 75/75.
+5. Measured 30-day advance: 30.12 s, 259,200 steps, 12,960 + 3,600 hourly rows.
+6. Frontend `FastDaysPanel` (`ebdfdb4`), 27/27 tests, build clean; real-HTTP
+   adapter check against this branch passed. Browser not verified.
+7. Evidence: [K004_FAST1_TAKEOVER_EVIDENCE.md](K004_FAST1_TAKEOVER_EVIDENCE.md);
+   transfer bundles in `K:\k004-fast1-transfer\`.
 
 ## Last checkpoint timestamp, including timezone
 
-2026-09-25 03:40 +05:30 (IST) — month run succeeded (Jan 2026, 44,640 intervals,
-1,331.376 kWh); evidence written; final local commit.
-
-## Design decisions (narrow, documented)
-
-1. Contract route `POST/GET /api/v1/history/jobs` (`from`, `to`,
-   `interval_seconds`); additive `month`, `seed`, `occupancy` fields.
-2. Only `interval_seconds: 60` (the engine's stored interval); 10 s steps.
-3. Occupancy **mode** and **calendar** are global policy revisions: a
-   job-specific mode or calendar would mint a global revision, so they are
-   rejected; runtime `total`/`target` for the current pinned mode are accepted.
-4. Batch runs never write `engine_checkpoints` (the interactive recovery
-   source); explicit `history_jobs.run_id` + run config `run_purpose`.
-5. Interrupted jobs are marked failed (`JOB_INTERRUPTED`); no resume.
-
-## Environment note
-
-VS Code (pid 26420) holds 127.0.0.1:19001/19002/19003 on this laptop (likely
-port forwarding). Not touched. Tests use port 0 only; the pre-existing
-`shutdown.test.ts` needs 19001 and cannot pass while it is held.
+2026-09-25 05:15 +05:30 (IST) — evidence written; final local commits and
+bundles.
 
 ## Exact next action
 
-None for M-C (stop after K005-PREP). For the integrating agent: review, then
-apply the mounting step and K003 run-selectable export described in
-[K005_HISTORY_GENERATION_PREP_EVIDENCE.md](K005_HISTORY_GENERATION_PREP_EVIDENCE.md)
-§10; renumber migration 004 if another 004 lands first; re-run
-`test/history.test.ts` after K004 merges; run `shutdown.test.ts` where port
-19001 is free.
+None for M-C. For K-A (integration, on Kishore's laptop): import the bundles
+per `K:\k004-fast1-transfer\README.txt` (after Mohan transfers them); review;
+mount the history router (K005 evidence §10) and the FastDaysPanel; renumber
+migrations 004/005 if needed; reconcile with GLM/K004 climate work and re-run
+`test/fast.test.ts` + `test/history.test.ts`; run `shutdown.test.ts` where
+port 19001 is free; browser-verify the panel.
 
 ## Processes started by M-C
 
-None remaining (month-run harness exited, ephemeral port closed). Scratch DB kept:
-`%TEMP%\nexyra-k005\month-2026-01-20260924T213403Z\` (history.sqlite ≈364 MB + summary.json).
+None remaining. Scratch data kept: `%TEMP%\nexyra-k005\…`,
+`%TEMP%\nexyra-k004-fast1\…`.
 
 ## Commit reference
 
-Base `929e78e`. Local commits on `mohan/k005-history-prep`: `1975c8d`
-(implementation + tests) and a follow-up docs/script commit (see git log).
-Not pushed.
+Backend: base `929e78e`; `1975c8d` `92aadd8` `0464c9a` (K005), `c6794b2` +
+a final docs/script commit (K004-FAST1; hash in the transfer README).
+Frontend: base `dbcbee9`; `ebdfdb4`. Local only; not pushed.

@@ -666,3 +666,22 @@ correction entry; do not rewrite history.
   branch-local migration 005 rebuilds history_jobs to allow it (004 untouched).
 - Tests: new `test/fast.test.ts` 13/13; total 92/92 (all files except
   shutdown.test.ts); typecheck/lint/build clean; schema 24/24; contract 75/75.
+
+---
+
+## 2026-09-25 05:15 +05:30 (IST) — K004-FAST1 completed (branch preparation; review pending)
+
+- Measured (scratch DB, real createApp on an ephemeral port): 30-day hourly
+  advance in 30.12 s wall (0.996 d/s), 259,200/259,200 steps, 12,960 device +
+  3,600 room hourly intervals, 0 partial, energy reconciles within 2.4e-10 kWh;
+  AC on/clear commands 200 in 7.2 ms and correctly reflected in the affected
+  hours (39 min → 0.975 kWh); /health median 6 ms (max 64.9) while advancing;
+  memory point samples heap ≤41 MB, RSS ≤121 MB (not peaks).
+- Frontend branch `mohan/k004-fast1-controls` `ebdfdb4`: FastDaysPanel +
+  adapters, 27/27 tests, build clean; real-HTTP adapter check against this
+  branch passed (advance/stop/409/hourly Feb job 672/672, interactive time
+  unchanged). Browser not verified.
+- shutdown.test.ts not rerun (port 19001 held by VS Code; no isolated
+  environment). GLM work unavailable on this laptop; not reused.
+- Evidence: docs/K004_FAST1_TAKEOVER_EVIDENCE.md; K005 evidence addendum §12.
+- Next: transfer bundles (`K:/k004-fast1-transfer/`) → K-A integration.
