@@ -13,6 +13,9 @@ export interface Config {
 
 export class ConfigError extends Error {}
 
+/** Fixed VPS/runtime listener. PORT is intentionally ignored. */
+export const SERVER_PORT = 19001;
+
 type Env = Record<string, string | undefined>;
 
 export function intInRange(env: Env, name: string, fallback: number, min: number, max: number): number {
@@ -49,7 +52,7 @@ export function parseSizeLimit(name: string, raw: string): string {
 
 export function loadConfig(env: Env = process.env): Config {
   return {
-    port: intInRange(env, 'PORT', 4000, 0, 65535),
+    port: SERVER_PORT,
     host: env.HOST || '127.0.0.1',
     frontendOrigin: parseOrigin('FRONTEND_ORIGIN', env.FRONTEND_ORIGIN || 'http://localhost:3000'),
     jsonBodyLimit: parseSizeLimit('JSON_BODY_LIMIT', env.JSON_BODY_LIMIT || '100kb'),

@@ -18,7 +18,7 @@ describe('graceful shutdown (real process)', () => {
 
   it('closes the HTTP server and the database, then exits 0', async () => {
     child = spawn(process.execPath, ['--import', 'tsx', 'src/server.ts'], {
-      env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATABASE_PATH: dbPath },
+      env: { ...process.env, PORT: 'ignored-by-fixed-config', HOST: '127.0.0.1', DATABASE_PATH: dbPath },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     });
     let out = '';
@@ -34,6 +34,7 @@ describe('graceful shutdown (real process)', () => {
       }, 50);
     });
 
+    assert.equal(port, '19001', 'PORT must be ignored by the fixed runtime configuration');
     const health = await fetch(`http://127.0.0.1:${port}/api/v1/health`);
     assert.equal(health.status, 200);
     const inv = await fetch(`http://127.0.0.1:${port}/api/v1/inventory`);

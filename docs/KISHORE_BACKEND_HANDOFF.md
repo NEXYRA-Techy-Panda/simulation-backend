@@ -56,7 +56,7 @@ Every new task starts with this protocol (see
 ```sh
 npm ci                     # exact dependencies from package-lock.json
 npm run db:setup           # = db:migrate + db:seed (idempotent, non-destructive)
-npm run dev                # tsx watch src/server.ts → http://localhost:4000
+npm run dev                # tsx watch src/server.ts → http://localhost:19001
 ```
 
 | Command | Purpose |
@@ -71,7 +71,8 @@ npm run dev                # tsx watch src/server.ts → http://localhost:4000
 
 - **Startup** applies pending migrations and recovers the most recent
   active run as **paused**. It never seeds, resets or deletes data.
-- **Configuration** (`.env.example`): `PORT` (4000), `HOST` (127.0.0.1),
+- **Configuration** (`.env.example`): the HTTP port is fixed in source at
+  `19001` and `PORT` is ignored; `HOST` (127.0.0.1),
   `FRONTEND_ORIGIN` (http://localhost:3000), `JSON_BODY_LIMIT` (100kb),
   `SHUTDOWN_TIMEOUT_MS` (10000), `DATABASE_PATH` (`data/simulation.sqlite`,
   git-ignored), `SQLITE_BUSY_TIMEOUT_MS` (5000).

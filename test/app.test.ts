@@ -114,15 +114,15 @@ describe('error envelope', () => {
 describe('config', () => {
   it('uses the documented defaults', () => {
     assert.deepEqual(loadConfig({}), {
-      port: 4000, host: '127.0.0.1', frontendOrigin: 'http://localhost:3000',
+      port: 19001, host: '127.0.0.1', frontendOrigin: 'http://localhost:3000',
       jsonBodyLimit: '100kb', shutdownTimeoutMs: 10000,
       databasePath: 'data/simulation.sqlite', sqliteBusyTimeoutMs: 5000,
     });
   });
 
-  it('rejects non-origin URLs and invalid ports', () => {
+  it('rejects invalid non-port settings and ignores PORT', () => {
     assert.throws(() => loadConfig({ FRONTEND_ORIGIN: 'http://localhost:3000/app' }), ConfigError);
-    assert.throws(() => loadConfig({ PORT: 'abc' }), ConfigError);
+    assert.equal(loadConfig({ PORT: 'abc' }).port, 19001);
     assert.throws(() => loadConfig({ JSON_BODY_LIMIT: 'lots' }), ConfigError);
   });
 });

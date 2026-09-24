@@ -7,7 +7,7 @@ and auditing project.
   simulation time, occupancy, schedules, device states, readings, aggregation,
   history, CSV/JSON export, and scenario generation.
 - **Owner**: Mohan (foundation F0–F6) → Kishore Kumar (after handoff).
-- **Local port**: `4000`. Serves `simulation-frontend` on `3000`.
+- **Fixed port**: `19001`. Serves `simulation-frontend` on `3000`.
 
 ## Status (P008 / K3–K4, 2026-09-24)
 
@@ -28,11 +28,11 @@ fault injection, comfort/thermal behaviour. Design + complete API examples:
 Quick demo (after `npm run db:setup` and `npm run dev`):
 
 ```sh
-curl -X POST http://localhost:4000/api/v1/control/start -H "Content-Type: application/json" -d "{\"speed\":60}"
-curl -X POST http://localhost:4000/api/v1/occupancy -H "Content-Type: application/json" -d "{\"mode\":\"manual\",\"total\":12}"
-curl -X POST http://localhost:4000/api/v1/devices/dev-meeting-light -H "Content-Type: application/json" -d "{\"manual_state\":\"on\"}"
-curl http://localhost:4000/api/v1/state
-curl -X POST http://localhost:4000/api/v1/control/pause
+curl -X POST http://localhost:19001/api/v1/control/start -H "Content-Type: application/json" -d "{\"speed\":60}"
+curl -X POST http://localhost:19001/api/v1/occupancy -H "Content-Type: application/json" -d "{\"mode\":\"manual\",\"total\":12}"
+curl -X POST http://localhost:19001/api/v1/devices/dev-meeting-light -H "Content-Type: application/json" -d "{\"manual_state\":\"on\"}"
+curl http://localhost:19001/api/v1/state
+curl -X POST http://localhost:19001/api/v1/control/pause
 ```
 
 ## Setup and commands (Windows PowerShell or Linux shell; Node >= 24, npm)
@@ -40,7 +40,7 @@ curl -X POST http://localhost:4000/api/v1/control/pause
 ```sh
 npm ci                     # exact versions from package-lock.json
 npm run db:setup           # = db:migrate + db:seed (both idempotent, non-destructive)
-npm run dev                # tsx watch src/server.ts  -> http://localhost:4000
+npm run dev                # tsx watch src/server.ts  -> http://localhost:19001
 ```
 
 | Script | What it does |
@@ -55,13 +55,14 @@ Startup applies pending migrations, recovers the most recent active run as **pau
 `node dist/cli/migrate.js`, `node dist/cli/seed.js`. No reset command exists
 — nothing deletes data. Driver: built-in `node:sqlite` (no native addon).
 
-Checks: `curl http://localhost:4000/api/v1/health`,
-`curl http://localhost:4000/api/v1/inventory`.
+Checks: `curl http://localhost:19001/api/v1/health`,
+`curl http://localhost:19001/api/v1/inventory`.
 
 ## Configuration
 
 Copy `.env.example` to `.env` for local overrides (`.env` is git-ignored;
-real environment variables take precedence). Variables: `PORT` (4000),
+real environment variables take precedence). The HTTP listener port is fixed
+in source at `19001`; `PORT` is intentionally ignored. Other variables:
 `HOST` (127.0.0.1), `FRONTEND_ORIGIN` (http://localhost:3000; the only CORS
 origin — CORS is not authentication), `JSON_BODY_LIMIT` (100kb),
 `SHUTDOWN_TIMEOUT_MS` (10000), `DATABASE_PATH` (`data/simulation.sqlite`,
