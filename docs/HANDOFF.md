@@ -239,6 +239,30 @@
   recovered paused at the checkpointed time). Remaining, **not** implemented:
   export endpoint, `energy-ml-service` acceptance run, browser checks.
   Evidence: [K002_POLICY_TIMING_EVIDENCE.md](K002_POLICY_TIMING_EVIDENCE.md).
+- K005-PREP addendum (2026-09-25, **branch-local** on `mohan/k005-history-prep`,
+  worktree `K:\simulation-backend-k005`; Developer Mohan | M-C — Claude Code;
+  review **pending**; **not merged, not pushed, not deployed**): backend batch
+  history generation on the shared engine. `SimulationEngine` batch mode
+  (`createBatchRun` at a requested minute-aligned start; the same
+  `advanceSteps`/`stepOnce`; checkpoint redirected to per-minute job progress;
+  never writes `engine_checkpoints`), branch-local migration
+  `004_history_jobs`, `src/history/{request,service}.ts`, and
+  `src/routes/historyJobs.ts` implementing `POST/GET /api/v1/history/jobs`
+  (additive `month`, `seed`, `occupancy`). The router is **not mounted** in
+  `app.ts` (documented step, to avoid colliding with K003 wiring). Export is
+  **not** implemented (K003). Evidence and integration steps:
+  [K005_HISTORY_GENERATION_PREP_EVIDENCE.md](K005_HISTORY_GENERATION_PREP_EVIDENCE.md).
+  This `main` handoff text above is otherwise unchanged on the branch.
+- K004-FAST1 addendum (2026-09-25, same branch/worktree on Mohan's laptop; M-C
+  — Claude Code; takeover from Kishore K-B — GLM, whose work was not reachable
+  here; review **pending**; not merged, pushed or deployed): per-run recording
+  interval 60 | 3600 s (immutable run config; local-hour aggregation of the
+  same 10 s steps; calendar changes at the next recording boundary),
+  interactive `POST /control/advance {days}` / `/control/advance/stop` (≈1
+  simulated day per real second; measured 30 days in 30.12 s), hourly history
+  jobs (branch-local migration 005). Frontend panel on
+  `simulation-frontend` branch `mohan/k004-fast1-controls`. Evidence:
+  [K004_FAST1_TAKEOVER_EVIDENCE.md](K004_FAST1_TAKEOVER_EVIDENCE.md).
 
 ## 1. Purpose and owner
 

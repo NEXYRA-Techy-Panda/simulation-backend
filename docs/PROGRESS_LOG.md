@@ -600,3 +600,124 @@ correction entry; do not rewrite history.
 - Review pending. Exact next action: final docs/diff/staged review, all gates,
   normal commit/push and remote hash verification. Stop after K003; do not begin
   K004.
+## 2026-09-25 02:35 +05:30 (IST) — K005-PREP started (branch `mohan/k005-history-prep`)
+
+- Developer Mohan | M-C — Claude Code. Isolated worktree
+  `K:/simulation-backend-k005` from `main` `929e78e` (== origin/main by
+  ls-remote). Kishore's `main` working copy untouched.
+- Context read: README, PROJECT_CONTEXT, WORKSPACE_MAP, HANDOFF,
+  KISHORE_BACKEND_HANDOFF, SIMULATION_ENGINE, ACTIVE_TASK, this log,
+  contracts/v1 CONTRACT/API; source for engine, runs, migrations, occupancy,
+  schedule, scheduler, routes, tests. No AGENTS.md. No existing
+  history/export implementation (routes: health, inventory, state, control,
+  occupancy, calendar, devices).
+- Previous outcome preserved in ACTIVE_TASK (K002 completed, review pending).
+
+---
+
+## 2026-09-25 03:15 +05:30 (IST) — K005-PREP implementation group 1 (engine batch mode, jobs, routes, tests)
+
+- Branch-local migration `004_history_jobs` (history_jobs table; terminal rows
+  final; trigger forbids an engine checkpoint for a batch run).
+- `SimulationEngine` batch mode (`EngineOptions.batch`, `createBatchRun`):
+  same `advanceSteps`/`stepOnce`; checkpoint redirected to a per-minute job
+  progress update in the same transaction; interactive lifecycle and
+  global-policy commands refused. Interactive config unchanged.
+- `src/history/request.ts` (validation, Asia/Kolkata month windows),
+  `src/history/service.ts` (one worker, bounded queue, chunked + yielding,
+  verify-then-succeed, JOB_FAILED / JOB_INTERRUPTED), `src/routes/historyJobs.ts`
+  (not mounted in app.ts — documented step).
+- Existing tests adjusted only for the new migration number (db.test,
+  policyTiming legacy rollback). Two runner defects found by the new tests and
+  fixed before commit: a submit/settle race that could strand a queued job, and
+  same-second FIFO ordering (now rowid).
+- Checks: 79/79 tests (all files except `shutdown.test.ts`, blocked by VS Code
+  holding port 19001), typecheck, lint, build clean, verify:contract 75/75,
+  validate:schema pass.
+- Next: representative month generation + evidence + docs.
+
+---
+
+## 2026-09-25 03:40 +05:30 (IST) — K005-PREP completed (branch preparation; review pending)
+
+- Representative month (scratch DB, in-process harness on an ephemeral port,
+  real HTTP): `{month:"2026-01", seed:20260101, occupancy:{scheduled, 14}}` →
+  `succeeded`; 267,840 steps / 44,640 intervals; 803,520 device + 223,200 room
+  rows, 0 partial; `2025-12-31T18:30:00Z`→`2026-01-31T18:30:00Z`; office
+  1,331.376 kWh (rooms reconcile; cumulative mismatch ≤1.9e-10); fridge
+  111.6 kWh = 150 W × 744 h; ≈208 s wall; memory point samples heap 18–36 MB /
+  RSS 93–127 MB (not peaks); interactive checkpoint unchanged and recovery
+  returned the interactive run.
+- Evidence: `docs/K005_HISTORY_GENERATION_PREP_EVIDENCE.md` (interface,
+  decisions, isolation, verification, suitability, K003/K004 integration).
+- Added `scripts/k005-month-run.ts`. HANDOFF addendum added (branch-local).
+- Not done: push/merge/deploy, export (K003), mounting in app.ts,
+  shutdown.test.ts on this laptop (port 19001 held by VS Code).
+- Next: review; integration steps in evidence §10. Stop after K005-PREP.
+
+---
+
+## 2026-09-25 03:55 +05:30 (IST) — K004-FAST1 takeover started (Mohan's laptop, worktree `K:/simulation-backend-k005`)
+
+- Developer Mohan | M-C — Claude Code; previous assignee Kishore K-B — GLM-5.3.
+- Observed on Mohan's laptop only: branch `mohan/k005-history-prep` at
+  `0464c9a` (clean; K005 commits 1975c8d, 92aadd8, 0464c9a); remote
+  simulation-backend has only `main` `929e78e`; remote simulation-frontend
+  `main` `dbcbee9`. **No GLM/K004 work is reachable from this laptop** (no
+  branch, bundle, worktree or handoff) — recorded, not reconstructed. This
+  says nothing about the state of Kishore's laptop.
+- Another agent's frontend worktree exists (`K:/NEXYRA/simulation-frontend-visual`,
+  `mohan/sim-visual-01`) — not touched.
+- Contract 1.0.1 already allows `interval_seconds` 3600 (no contract change).
+
+---
+
+## 2026-09-25 04:30 +05:30 (IST) — K004-FAST1 group 1: hourly recording + advance days (backend)
+
+- Per-run recording interval 60 | 3600 s in immutable run config
+  (`interval_seconds`, same key as before; 60 s runs byte-identical). Boundaries
+  on the LOCAL clock (local minutes / local hours = UTC hh:30). Calendar changes
+  take effect at the next recording boundary (one policy ref per interval).
+- `POST /control/advance {days 1..31}` / `POST /control/advance/stop`: the
+  existing WallClockScheduler at 86,400 sim-s per real second, clamped to the
+  target, then paused; pause also stops; start/resume/reset refused during an
+  advance; advance refused while the clock runs; `state.advance` shows
+  processed vs expected steps and the last outcome. Not resumed after restart.
+- History jobs accept `interval_seconds: 3600` (local-hour aligned);
+  branch-local migration 005 rebuilds history_jobs to allow it (004 untouched).
+- Tests: new `test/fast.test.ts` 13/13; total 92/92 (all files except
+  shutdown.test.ts); typecheck/lint/build clean; schema 24/24; contract 75/75.
+
+---
+
+## 2026-09-25 05:15 +05:30 (IST) — K004-FAST1 completed (branch preparation; review pending)
+
+- Measured (scratch DB, real createApp on an ephemeral port): 30-day hourly
+  advance in 30.12 s wall (0.996 d/s), 259,200/259,200 steps, 12,960 device +
+  3,600 room hourly intervals, 0 partial, energy reconciles within 2.4e-10 kWh;
+  AC on/clear commands 200 in 7.2 ms and correctly reflected in the affected
+  hours (39 min → 0.975 kWh); /health median 6 ms (max 64.9) while advancing;
+  memory point samples heap ≤41 MB, RSS ≤121 MB (not peaks).
+- Frontend branch `mohan/k004-fast1-controls` `ebdfdb4`: FastDaysPanel +
+  adapters, 27/27 tests, build clean; real-HTTP adapter check against this
+  branch passed (advance/stop/409/hourly Feb job 672/672, interactive time
+  unchanged). Browser not verified.
+- shutdown.test.ts not rerun (port 19001 held by VS Code; no isolated
+  environment). GLM work unavailable on this laptop; not reused.
+- Evidence: docs/K004_FAST1_TAKEOVER_EVIDENCE.md; K005 evidence addendum §12.
+- Next: transfer bundles (`K:/k004-fast1-transfer/`) → K-A integration.
+
+---
+
+## 2026-09-25 (IST) — Merge of `mohan/k005-history-prep` into `main` (Mohan | M-C — Claude Code)
+
+- At Mohan's request, merged K005-PREP + K004-FAST1 on top of K003 (`5cb824d`).
+  Conflicts only in ACTIVE_TASK/PROGRESS_LOG (both histories kept).
+- Integration: history router mounted via `createApp({history})`; history
+  worker started/stopped in `server.ts`; K003 export refuses non-succeeded
+  history-job runs and hourly-recorded runs (409); new
+  `test/integration.k005.test.ts`.
+- Checks: 110/110 tests (excl. shutdown.test.ts — port 19001 held by VS Code
+  on Mohan's laptop), typecheck/lint/build, schema 24/24, contract 75/75.
+- Remaining: hourly export support; K004 climate model reconciliation;
+  browser verification; review pending.

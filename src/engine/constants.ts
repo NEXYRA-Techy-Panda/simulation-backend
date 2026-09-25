@@ -9,6 +9,20 @@ export type Speed = (typeof SPEEDS)[number];
 export const isSpeed = (v: unknown): v is Speed => SPEEDS.includes(v as Speed);
 export const DEFAULT_SPEED: Speed = 1;
 
+/**
+ * K004-FAST1: recording (aggregation) interval of a run, fixed in its immutable
+ * run config when the run is created. 60 s is the default and every existing
+ * run's value; 3600 s aggregates the same 10 s steps into local-hour intervals.
+ * Both are contract 1.0.1 nominal interval_seconds values.
+ */
+export const RECORDING_INTERVALS = [60, 3600] as const;
+export type RecordingInterval = (typeof RECORDING_INTERVALS)[number];
+export const isRecordingInterval = (v: unknown): v is RecordingInterval => RECORDING_INTERVALS.includes(v as RecordingInterval);
+
+/** Interactive "advance days": pacing target (simulated seconds per real second = one day per second) and bounds. */
+export const ADVANCE_SPEED = 86_400;
+export const MAX_ADVANCE_DAYS = 31;
+
 /** 2026-01-01 00:00 Asia/Kolkata (UTC+05:30), stored as UTC. */
 export const INITIAL_SIM_TIME_UTC = '2025-12-31T18:30:00Z';
 

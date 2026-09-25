@@ -3,11 +3,13 @@ import express, { type Express } from 'express';
 import type { Config } from './config.js';
 import type { Database } from './db/connection.js';
 import type { SimulationEngine } from './engine/engine.js';
+import type { HistoryJobService } from './history/service.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { requestId } from './http/requestId.js';
 import { healthRouter } from './routes/health.js';
 import { inventoryRouter } from './routes/inventory.js';
 import { exportsRouter, type ExportDatabaseProvider } from './routes/exports.js';
+import { historyJobsRouter } from './routes/historyJobs.js';
 import { simulationRouter } from './routes/simulation.js';
 
 export interface AppDeps {
@@ -17,9 +19,11 @@ export interface AppDeps {
   engine: SimulationEngine;
   /** Dedicated read-only provider used for consistent export snapshots. */
   exportDatabase?: ExportDatabaseProvider;
+  /** Batch history jobs (K005); routes are mounted only when provided. */
+  history?: HistoryJobService;
 }
 
-export function createApp(config: Config, { db, engine, exportDatabase }: AppDeps): Express {
+export function createApp(config: Config, { db, engine, exportDatabase, history }: AppDeps): Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestId);
@@ -33,6 +37,7 @@ export function createApp(config: Config, { db, engine, exportDatabase }: AppDep
   app.use('/api/v1', inventoryRouter(db));
   app.use('/api/v1', exportsRouter(exportDatabase ?? { open: () => db }));
   app.use('/api/v1', simulationRouter(engine));
+  if (history) app.use('/api/v1', historyJobsRouter(history));
 
   app.use(notFound);
   app.use(errorHandler);

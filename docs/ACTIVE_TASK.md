@@ -1,5 +1,18 @@
 # ACTIVE_TASK — simulation-backend
 
+> **Integration note (2026-09-25, Mohan | M-C — Claude Code, on Mohan's laptop):**
+> `main` now also contains branch `mohan/k005-history-prep` (K005-PREP batch
+> history jobs + K004-FAST1 hourly recording and advance-days), merged on top
+> of K003 at Mohan's request. Wiring: `createApp({..., history})` mounts
+> `POST/GET /api/v1/history/jobs`; `server.ts` starts/stops the history worker.
+> K003 export now refuses runs of non-succeeded history jobs and hourly-recorded
+> runs (explicit 409; hourly export not implemented). Migrations 004–005 are now
+> on `main`. Evidence: [K005_HISTORY_GENERATION_PREP_EVIDENCE.md](K005_HISTORY_GENERATION_PREP_EVIDENCE.md),
+> [K004_FAST1_TAKEOVER_EVIDENCE.md](K004_FAST1_TAKEOVER_EVIDENCE.md). Checks at merge:
+> 110/110 tests (excluding `shutdown.test.ts`, which needs port 19001 held by
+> VS Code on that laptop), typecheck/lint/build, schema 24/24, contract 75/75.
+> Review pending. The K003 record below is unchanged.
+
 ## prompt_id
 
 K003 — historical JSON/CSV export (resumed under Kishore | K-A — OpenCode).

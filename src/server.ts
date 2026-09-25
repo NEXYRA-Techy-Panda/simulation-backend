@@ -4,6 +4,7 @@ import { type Config, ConfigError, loadConfig } from './config.js';
 import { MEMORY, closeDatabase, openDatabase, openReadOnlyDatabase } from './db/connection.js';
 import { runMigrations } from './db/migrate.js';
 import { SimulationEngine } from './engine/engine.js';
+import { HistoryJobService } from './history/service.js';
 import { loadLocalEnv } from './env.js';
 
 loadLocalEnv();
@@ -38,6 +39,11 @@ console.log(recovered
   ? `recovered run ${recovered.run_id} at ${recovered.sim_time_utc} (seq ${recovered.seq}) as paused`
   : 'no active run; engine not_initialized until start');
 
+// Batch history jobs (K005): fail jobs left running by a previous process, then process queued ones.
+const history = new HistoryJobService(db);
+const { interrupted } = history.start();
+if (interrupted.length) console.log(`history jobs interrupted by the previous stop: ${interrupted.join(', ')}`);
+
 const { host, port, shutdownTimeoutMs } = config;
 const exportDatabase = config.databasePath === MEMORY
   ? { open: () => db }
@@ -45,7 +51,7 @@ const exportDatabase = config.databasePath === MEMORY
       open: () => openReadOnlyDatabase(config.databasePath, { busyTimeoutMs: config.sqliteBusyTimeoutMs }),
       close: (reader: typeof db) => reader.close(),
     };
-const server = createApp(config, { db, engine, exportDatabase }).listen(port, host, () => {
+const server = createApp(config, { db, engine, exportDatabase, history }).listen(port, host, () => {
   const actual = (server.address() as AddressInfo).port;
   console.log(`simulation-backend listening on http://${host}:${actual} (health: /api/v1/health, pid ${process.pid})`);
 });
@@ -66,6 +72,8 @@ function shutdown(reason: string): void {
   } catch (err) {
     console.error('engine checkpoint failed during shutdown:', err);
   }
+  // Stops the history worker after its current chunk (a running job is marked JOB_INTERRUPTED).
+  const historyStopped = history.stop().catch((err: unknown) => console.error('history worker stop failed:', err));
   const timer = setTimeout(() => {
     console.error('Shutdown deadline reached; closing remaining connections');
     server.closeAllConnections();
@@ -73,9 +81,11 @@ function shutdown(reason: string): void {
   timer.unref();
   server.close((err) => {
     if (err) console.error(err);
-    closeDatabase(db);
-    console.log('database closed; exiting');
-    process.exit(err ? 1 : 0);
+    void historyStopped.then(() => {
+      closeDatabase(db);
+      console.log('database closed; exiting');
+      process.exit(err ? 1 : 0);
+    });
   });
   server.closeIdleConnections();
 }

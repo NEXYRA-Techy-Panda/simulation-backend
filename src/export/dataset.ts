@@ -112,6 +112,19 @@ function loadRun(db: Database, runId: string): RunRecord {
   if (!isCanonicalUtc(row.run_start_utc) || !isCanonicalUtc(row.created_utc)) {
     conflict(`Run "${runId}" has invalid canonical UTC metadata.`);
   }
+  // K005 integration: a history-batch run is exportable only once its job has
+  // succeeded (verified complete); queued/running/failed output is never history.
+  const job = db.prepare('SELECT status FROM history_jobs WHERE run_id = ?').get(runId) as { status: string } | undefined;
+  if (job && job.status !== 'succeeded') {
+    conflict(`Run "${runId}" belongs to a history job that is ${job.status}, not succeeded; its readings are not complete history.`, 'run_id');
+  }
+  // K004-FAST1 integration: this exporter reads 60 s source rows. Hourly-recorded
+  // runs are refused explicitly rather than failing on row durations.
+  const recording = db.prepare(`SELECT json_extract(config, '$.interval_seconds') AS s FROM simulation_runs WHERE run_id = ?`)
+    .get(runId) as { s: number | null };
+  if (recording.s !== null && recording.s !== SOURCE_INTERVAL_SECONDS) {
+    conflict(`Run "${runId}" records ${recording.s} s intervals; export currently supports 60 s-recorded runs only.`, 'run_id');
+  }
   return row;
 }
 
